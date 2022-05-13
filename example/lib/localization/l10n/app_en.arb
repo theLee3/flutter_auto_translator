@@ -1,0 +1,23 @@
+{
+    "appTitle": "Localization Demo App",
+    "@appTitle": {
+        "description": "Name of app."
+    },
+    "homePageTitle": "Localization Demo Home Page",
+    "@homePageTitle": {
+        "description": "Title shown in app bar on home page."
+    },
+    "buttonPresses": "You have pushed the button this many times: {count}",
+    "@buttonPresses": {
+        "description": "Message reporing the number of button presses.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "tooltip": "Increment",
+    "@tooltip": {
+        "description": "Tooltip shown by floating action button."
+    }
+}

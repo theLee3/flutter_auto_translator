@@ -32,6 +32,15 @@ class NoTargetsProvidedException extends CustomException {
   const NoTargetsProvidedException([message]) : super(message);
 }
 
+/// {@template InvalidFormatException}
+/// Thrown when opening or closing curly braces are missing from a String in
+/// the template ARB file.
+/// {@endtemplate}
+class InvalidFormatException extends CustomException {
+  /// {@macro NoTargetsProvidedException}
+  const InvalidFormatException([message]) : super(message);
+}
+
 /// {@template GoogleTranslateException}
 /// Thrown when an eror occurs communicating with Google Cloud Translate.
 /// {@endtemplate}

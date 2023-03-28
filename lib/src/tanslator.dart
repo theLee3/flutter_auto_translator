@@ -17,10 +17,7 @@ class Translator {
   Translator(this._config);
   final Map<String, dynamic> _config;
 
-  // expression for finding variables in simple arb strings (wrapped in {})
-  final _arbVarExp = RegExp(r'{.*}');
-
-  // exprssion for finding variables in complex arb string
+  // expression for finding variables in complex arb string
   final _complexArbVarExp = RegExp(r'\$\w*');
 
   // expression used for storing variables in simple arb strings
@@ -192,7 +189,7 @@ class Translator {
     for (final variable in variables) {
       var replacement =
           _complexMap[string.substring(variable.start, variable.end)];
-      if (replacement != null) {
+      if (replacement != null && replacement.isNotEmpty) {
         // some language translations (i.e. Japanese) may remove spaces
         // that are part of the arb spacing, so correct for those changes
         if (replacement[0] != '\$' &&
@@ -207,18 +204,33 @@ class Translator {
   }
 
   String _encodeString(String string) {
-    final firstMatch = _arbVarExp.firstMatch(string);
-    if (firstMatch != null &&
-        string.substring(firstMatch.start, firstMatch.end).contains(',')) {
-      return _encodeComplexString(string.substring(1, string.length - 1));
+    final firstBraceIndex = string.indexOf('{');
+    if (firstBraceIndex < 0) return string;
+    try {
+      final firstMatch =
+          string.substring(string.indexOf('{'), string.indexOf('}') + 1);
+      if (firstMatch.substring(1).contains('{')) {
+        return _encodeComplexString(string.substring(1, string.length - 1));
+      }
+
+      final variables = <String>[];
+      var adjustedString = string;
+      do {
+        final start = adjustedString.lastIndexOf('{');
+        final end = adjustedString.lastIndexOf('}') + 1;
+        variables.add(adjustedString.substring(start, end));
+        adjustedString = adjustedString.substring(0, start);
+      } while (adjustedString.contains('{'));
+
+      for (final variable in variables) {
+        final replacement = _createVariable(variable);
+        string.replaceFirst(variable, replacement);
+      }
+    } on IndexError catch (_) {
+      throw InvalidFormatException('Template ARB file is malformed. Missing '
+          'opening or closing curly brace.');
     }
 
-    final variables = _arbVarExp.allMatches(string).toList().reversed;
-    for (final variable in variables) {
-      final replacement =
-          _createVariable(string.substring(variable.start, variable.end));
-      string = string.replaceRange(variable.start, variable.end, replacement);
-    }
     return string;
   }
 

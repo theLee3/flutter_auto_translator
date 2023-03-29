@@ -24,7 +24,7 @@ Add auto_translator under dev_dependencies in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: "^1.0.0"
+  auto_translator: "^1.0.2"
 ```
 
 ### 3. Setup the config files

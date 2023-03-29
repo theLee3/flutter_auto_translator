@@ -38,7 +38,9 @@ class NoTargetsProvidedException extends CustomException {
 /// {@endtemplate}
 class InvalidFormatException extends CustomException {
   /// {@macro NoTargetsProvidedException}
-  const InvalidFormatException([message]) : super(message);
+  const InvalidFormatException([key])
+      : super('Template ARB file is malformed. Missing '
+            'opening or closing curly brace in `$key`.');
 }
 
 /// {@template GoogleTranslateException}

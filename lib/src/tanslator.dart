@@ -17,6 +17,10 @@ class Translator {
   Translator(this._config);
   final Map<String, dynamic> _config;
 
+  final _openBracket = RegExp(r"(?<!'){");
+  final _closeBracket = RegExp(r"(?<!')}");
+  final _anybracket = RegExp(r"{|}|'{|'}");
+
   // expression for finding variables in complex arb string
   final _complexArbVarExp = RegExp(r'\$\w*');
 
@@ -64,7 +68,7 @@ class Translator {
         (arbOptions['@$key']?['translator']?['ignore'] ?? false));
 
     for (final entry in arbTemplate.entries) {
-      arbTemplate[entry.key] = _encodeString(entry.value);
+      arbTemplate[entry.key] = _encodeString(entry);
     }
 
     final translations = <String, String>{};
@@ -118,14 +122,20 @@ class Translator {
         if (result != null) {
           final keys = sublist.map((e) => e.key).toList();
           for (var i = 0; i < keys.length; i++) {
-            translations[keys[i]] = _decodeString(result[i]);
+            final translatedString =
+                _removeAddedWhitespace(result[i], arbTemplate[keys[i]]);
+            translations[keys[i]] = _decodeString(translatedString);
           }
         }
         start += sublist.length;
       }
 
       if (translations.isNotEmpty) {
-        arbFile.writeAsStringSync(encoder.convert(translations));
+        // if the ARB file exists, match entry order to the template file
+        final output = arbFile.existsSync()
+            ? {for (var key in arbTemplate.keys) key: translations[key]}
+            : translations;
+        arbFile.writeAsStringSync(encoder.convert(output));
       }
       stdout.writeln('done.');
     }
@@ -166,6 +176,27 @@ class Translator {
         .cast<String>();
   }
 
+  // Google Cloud Translate sometimes introduces whitespace before a closing
+  // curly brace, so compare to original and remove it
+  String _removeAddedWhitespace(String translation, String template) {
+    final matchesTranslation =
+        _anybracket.allMatches(translation).toList(growable: false);
+    if (matchesTranslation.isEmpty) return translation;
+
+    final matchesTemplate =
+        _anybracket.allMatches(template).toList(growable: false);
+    var result = translation;
+    for (var i = 0; i < matchesTranslation.length; i++) {
+      if (matchesTranslation[i].start > 0 &&
+          translation[matchesTranslation[i].start - 1] == ' ' &&
+          template[matchesTemplate[i].start - 1] != '') {
+        result = result.replaceRange(
+            matchesTranslation[i].start - 1, matchesTranslation[i].start, '');
+      }
+    }
+    return result;
+  }
+
   String _decodeString(String string) => string.startsWith(_complexVarExp)
       ? _decodeComplexString(string)
       : _decodeSimpleString(string);
@@ -203,32 +234,38 @@ class Translator {
     return '{$string}';
   }
 
-  String _encodeString(String string) {
-    final firstBraceIndex = string.indexOf('{');
+  String _encodeString(MapEntry<String, dynamic> entry) {
+    String string = entry.value;
+    final firstBraceIndex = string.indexOf(_openBracket);
     if (firstBraceIndex < 0) return string;
+
+    if (_openBracket.allMatches(string).length !=
+        _closeBracket.allMatches(string).length) {
+      throw InvalidFormatException(entry.key);
+    }
+
     try {
-      final firstMatch =
-          string.substring(string.indexOf('{'), string.indexOf('}') + 1);
-      if (firstMatch.substring(1).contains('{')) {
+      final firstMatch = string.substring(
+          string.indexOf(_openBracket), string.indexOf(_closeBracket) + 1);
+      if (firstMatch.substring(1).contains(_openBracket)) {
         return _encodeComplexString(string.substring(1, string.length - 1));
       }
 
       final variables = <String>[];
       var adjustedString = string;
       do {
-        final start = adjustedString.lastIndexOf('{');
-        final end = adjustedString.lastIndexOf('}') + 1;
+        final start = adjustedString.lastIndexOf(_openBracket);
+        final end = adjustedString.lastIndexOf(_closeBracket) + 1;
         variables.add(adjustedString.substring(start, end));
         adjustedString = adjustedString.substring(0, start);
-      } while (adjustedString.contains('{'));
+      } while (adjustedString.contains(_openBracket));
 
       for (final variable in variables) {
         final replacement = _createVariable(variable);
-        string.replaceFirst(variable, replacement);
+        string = string.replaceFirst(variable, replacement);
       }
     } on IndexError catch (_) {
-      throw InvalidFormatException('Template ARB file is malformed. Missing '
-          'opening or closing curly brace.');
+      throw InvalidFormatException(entry.key);
     }
 
     return string;
@@ -242,9 +279,9 @@ class Translator {
     final complexStrings = string
         .substring(replacementPrefix.length, string.length - 1)
         .trim()
-        .split(r'}');
+        .split(_closeBracket);
     for (final complexString in complexStrings) {
-      final parts = complexString.trim().split('{');
+      final parts = complexString.trim().split(_openBracket);
       final name = parts[0];
       string =
           string.replaceFirst('$name{', '${_createComplexVariable(name)}{');

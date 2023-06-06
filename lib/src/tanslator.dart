@@ -36,6 +36,10 @@ class Translator {
   // map for storing complex arb string variables
   final _complexMap = <String, String>{};
 
+  // cached templates
+  final _templates = <String, Map<String, dynamic>>{};
+  final Map<dynamic, dynamic> _arbOptions = {};
+
   /// Translate to all targets using [client].
   Future<void> translate(http.Client client) async {
     final keyFile = File(_config['key_file']);
@@ -50,6 +54,7 @@ class Translator {
 
     final arbDir = _config['arb-dir'] as String? ?? "lib/l10n";
     final templateFilename = _config['template-arb-file'] as String? ?? "app_en.arb";
+    final preferTemplateLang = _config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
 
     if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$').hasMatch(templateFilename)) {
       stderr.writeln(NoTargetsProvidedException(
@@ -61,28 +66,13 @@ class Translator {
     final name = templateFilename.substring(0, templateFilename.indexOf(RegExp(r'[-_]')));
     stdout.writeln('Use source language: $source, name: $name, templateFilename: $templateFilename');
 
-    final templateFile = File('$arbDir/$templateFilename');
-    final arbTemplate =
-        jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
-
+    final translations = <String, String>{};
     final encoder = JsonEncoder.withIndent('    ');
 
-    // copy string metadata over from template, then remove from template
-    final arbOptions = Map.from(arbTemplate)
-      ..removeWhere((key, value) => !key.startsWith('@'));
-    arbTemplate.removeWhere((key, value) => key.startsWith('@'));
-
-    // remove strings that are marked ignore
-    arbTemplate.removeWhere((key, value) =>
-        (arbOptions['@$key']?['translator']?['ignore'] ?? false));
-
-    for (final entry in arbTemplate.entries) {
-      arbTemplate[entry.key] = _encodeString(entry);
-    }
-
-    final translations = <String, String>{};
-
     for (final target in targets) {
+      var preferLang = preferTemplateLang[target];
+      var arbTemplate = await _readTemplateFile(arbDir, name, preferLang ?? source);
+
       final toTranslate =
           List<MapEntry<String, dynamic>>.from(arbTemplate.entries);
       final arbFile = File('$arbDir/${name}_$target.arb');
@@ -93,7 +83,7 @@ class Translator {
             jsonDecode(arbFile.readAsStringSync()).cast<String, String>();
         toTranslate.removeWhere((element) =>
             prevTranslations.containsKey(element.key) &&
-            !(arbOptions['@${element.key}']?['translator']?['force'] ?? false));
+            !(_arbOptions['@${element.key}']?['translator']?['force'] ?? false));
         translations.addAll(prevTranslations);
       }
 
@@ -102,7 +92,7 @@ class Translator {
         continue;
       }
 
-      stdout.write('Translating to $target...');
+      stdout.write('Translating ${preferLang ?? source} to $target...');
 
       // Google Translate requests are limited to 128 strings & 5k characters,
       // so iterate through in chunks if necessary
@@ -146,8 +136,35 @@ class Translator {
             : translations;
         arbFile.writeAsStringSync(encoder.convert(output));
       }
-      stdout.writeln('done.');
+
+      stdout.write('Translated ${preferLang ?? source} to $target.');
     }
+
+    stdout.write('done.');
+    exit(0);
+  }
+
+  Future<Map<String, dynamic>> _readTemplateFile(String arbDir, String name, String lang) async {
+    var path = '$arbDir/${name}_${lang}.arb';
+    final templateFile = File(path);
+    if (_templates[path] != null) return _templates[path]!;
+
+    final arbTemplate = jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
+
+    // copy string metadata over from template, then remove from template
+    final _arbOptions = Map.from(arbTemplate)
+      ..removeWhere((key, value) => !key.startsWith('@'));
+    arbTemplate.removeWhere((key, value) => key.startsWith('@'));
+
+    // remove strings that are marked ignore
+    arbTemplate.removeWhere((key, value) =>
+    (_arbOptions['@$key']?['translator']?['ignore'] ?? false));
+
+    for (final entry in arbTemplate.entries) {
+      arbTemplate[entry.key] = _encodeString(entry);
+    }
+
+    return _templates[path] = arbTemplate;
   }
 
   Future<List<String>?> _translate({

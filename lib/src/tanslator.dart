@@ -92,7 +92,7 @@ class Translator {
         continue;
       }
 
-      stdout.write('Translating ${preferLang ?? source} to $target...');
+      stdout.writeln('Translating ${preferLang ?? source} to $target...');
 
       // Google Translate requests are limited to 128 strings & 5k characters,
       // so iterate through in chunks if necessary
@@ -137,10 +137,10 @@ class Translator {
         arbFile.writeAsStringSync(encoder.convert(output));
       }
 
-      stdout.write('Translated ${preferLang ?? source} to $target.');
+      stdout.writeln('Translated ${preferLang ?? source} to $target.');
     }
 
-    stdout.write('done.');
+    stdout.writeln('done.');
     exit(0);
   }
 

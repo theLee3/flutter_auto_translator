@@ -48,9 +48,18 @@ class Translator {
       exit(1);
     }
 
-    final arbDir = _config['arb-dir'] as String;
-    final templateFilename = _config['template-arb-file'] as String;
-    final source = templateFilename.substring(4, 6);
+    final arbDir = _config['arb-dir'] as String? ?? "lib/l10n";
+    final templateFilename = _config['template-arb-file'] as String? ?? "app_en.arb";
+
+    if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$').hasMatch(templateFilename)) {
+      stderr.writeln(NoTargetsProvidedException(
+          'templateFilename should be like: ' + r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$'));
+      exit(1);
+    }
+
+    final source = templateFilename.substring(templateFilename.indexOf(RegExp(r'[-_]')) + 1, templateFilename.indexOf('.arb'));
+    final name = templateFilename.substring(0, templateFilename.indexOf(RegExp(r'[-_]')));
+    stdout.writeln('Use source language: $source, name: $name, templateFilename: $templateFilename');
 
     final templateFile = File('$arbDir/$templateFilename');
     final arbTemplate =
@@ -76,7 +85,7 @@ class Translator {
     for (final target in targets) {
       final toTranslate =
           List<MapEntry<String, dynamic>>.from(arbTemplate.entries);
-      final arbFile = File('$arbDir/app_$target.arb');
+      final arbFile = File('$arbDir/${name}_$target.arb');
       if (arbFile.existsSync()) {
         // do not translate previously translated phrases
         // unless marked force
@@ -89,7 +98,7 @@ class Translator {
       }
 
       if (toTranslate.isEmpty) {
-        stdout.writeln('No changes to app_$target.arb');
+        stdout.writeln('No changes to ${name}_$target.arb');
         continue;
       }
 
@@ -166,6 +175,7 @@ class Translator {
 
     if (response.body.isEmpty) return null;
     final json = jsonDecode(response.body);
+    // stdout.write('auto_translate url: $url, content: $content, source: $source, target: $target, response: ${json}');
     if (json['error'] != null) {
       stderr.writeln(GoogleTranslateException('\n${json['error']['message']}'));
       exit(1);

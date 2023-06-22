@@ -5,34 +5,41 @@ import 'package:auto_translator/auto_translator.dart';
 import 'package:http/http.dart' as http;
 import 'package:yaml/yaml.dart';
 
-const String _helpFlag = 'help';
+const _helpFlag = 'help';
+const _configOption = 'config-file';
 
 /// Yaml file used to configure Translator.
-String configFile = 'l10n.yaml';
-const String _translatorKey = 'translator';
-const String _defaultKeyFile = 'translator_key';
+late final String configFile;
+const _defaultConfigFile = 'l10n.yaml';
+const _translatorKey = 'translator';
+const _defaultKeyFile = 'translator_key';
 
 /// Parses arguments from command line, providing help or running [Translator].
-Future<void> runWithArguments(List<String> arguments, {
-  String? yaml,
-}) async {
-  if (yaml != null) configFile = yaml;
-  final ArgParser parser = ArgParser();
-  parser.addFlag(_helpFlag, abbr: 'h', help: 'Usage help', negatable: false);
-  final ArgResults argResults = parser.parse(arguments);
+Future<void> runWithArguments(List<String> arguments) async {
+  final parser = ArgParser();
+  parser
+    ..addFlag(_helpFlag, abbr: 'h', help: 'Usage help', negatable: false)
+    ..addOption(
+      _configOption,
+      abbr: 'f',
+      help: 'Path to config file',
+      defaultsTo: _defaultConfigFile,
+    );
+  final argResults = parser.parse(arguments);
 
   if (argResults[_helpFlag]) {
     stdout.writeln(helpMessage);
   } else {
+    configFile = argResults[_configOption] ?? _defaultConfigFile;
     Translator(config).translate(http.Client());
   }
 }
 
 /// Converts Yaml file to a Map.
 Map<String, dynamic> get config {
-  final File file = File(configFile);
-  final String yamlString = file.readAsStringSync();
-  final Map yamlMap = loadYaml(yamlString);
+  final file = File(configFile);
+  final yamlString = file.readAsStringSync();
+  final yamlMap = loadYaml(yamlString);
 
   if (yamlMap[_translatorKey] is! Map) {
     stderr.writeln(
@@ -43,7 +50,7 @@ Map<String, dynamic> get config {
   }
 
   // `YamlMap`s can have unwanted side effects, so convert to Map
-  return _mapConfigEntries(yamlMap.entries);
+  return _mapConfigEntries((yamlMap as Map).entries);
 }
 
 Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
@@ -52,7 +59,7 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
     if (entry.key == _translatorKey) {
       config.addAll(_mapConfigEntries(YamlMap.wrap(entry.value).entries));
     } else if (entry.value is YamlList) {
-      config[entry.key] = entry.value.toList();
+      config[entry.key] = (entry.value as YamlList).toList();
     } else {
       config[entry.key] = entry.value;
     }

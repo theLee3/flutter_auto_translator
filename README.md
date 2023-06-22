@@ -24,7 +24,7 @@ Add auto_translator under dev_dependencies in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: "^1.0.2"
+  auto_translator: "^1.1.0"
 ```
 
 ### 3. Setup the config files
@@ -48,6 +48,10 @@ translator:
 The first three parameters are used by `intl` as well as `auto_translator`. The `translator` section is specific to `auto_translator`.
 
  The `targets` parameter is required and tells `auto_translator` which languages to translate the template file to. Available languages can be found [here](https://cloud.google.com/translate/docs/languages).
+
+### Regional Designations
+
+ You can use 2-letter language codes or include regional designations (en-US, en-GB, es-Es, etc.).
 
 An optional `key_file` parameter can be provided if you wish to store your Google Translate API key somehwere other than the default location.
 
@@ -93,3 +97,21 @@ You can also tell the translator to ignore a particular message with the `ignore
   }
 }
 ```
+
+### Preferred Templates
+
+Sometimes, you may wish to specify a language that translates more accurately to a target than the language used in the `template-arb-file`. For that, you can now provide a `prefer-lang-templates` map to specify a preferred language to use as a template for any target language.
+
+```yaml
+translator:
+  # use es template for fr translation ja for ko
+  # all other translations will use [template-arb-file]
+  prefer-lang-templates: {
+    'fr': 'es',
+    'ko': 'ja',
+  }
+```
+
+### Alternate config file
+
+By default, the config file is named `l10n.yaml` and is located in the project's root directory. You can pass in an alternate file path when running on the command line using the `--config-file` option.

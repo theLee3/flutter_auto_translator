@@ -38,7 +38,7 @@ class Translator {
 
   // cached templates
   final _templates = <String, Map<String, dynamic>>{};
-  final Map<dynamic, dynamic> _arbOptions = {};
+  final _arbOptions = <dynamic, dynamic>{};
 
   /// Translate to all targets using [client].
   Future<void> translate(http.Client client) async {
@@ -61,7 +61,7 @@ class Translator {
     if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$')
         .hasMatch(templateFilename)) {
       stderr.writeln(NoTargetsProvidedException(
-          'templateFilename should be like: '
+          '[template-arb-file] should be in the format: '
           r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$'));
       exit(1);
     }
@@ -102,7 +102,7 @@ class Translator {
         continue;
       }
 
-      stdout.writeln('Translating ${preferLang ?? source} to $target...');
+      stdout.write('Translating from ${preferLang ?? source} to $target...');
 
       // Google Translate requests are limited to 128 strings & 5k characters,
       // so iterate through in chunks if necessary
@@ -147,10 +147,12 @@ class Translator {
         arbFile.writeAsStringSync(encoder.convert(output));
       }
 
-      stdout.writeln('Translated ${preferLang ?? source} to $target.');
+      stdout.writeln('done.');
+      stdout.writeln('Translated ${translations.length} entries from '
+          '${preferLang ?? source} to $target.');
     }
 
-    stdout.writeln('done.');
+    stdout.writeln('Finished translating to ${targets.length} languages.');
     exit(0);
   }
 

@@ -9,7 +9,7 @@ const _helpFlag = 'help';
 const _configOption = 'config-file';
 
 /// Yaml file used to configure Translator.
-late final String configFile;
+var configFile = _defaultConfigFile;
 const _defaultConfigFile = 'l10n.yaml';
 const _translatorKey = 'translator';
 const _defaultKeyFile = 'translator_key';
@@ -30,7 +30,9 @@ Future<void> runWithArguments(List<String> arguments) async {
   if (argResults[_helpFlag]) {
     stdout.writeln(helpMessage);
   } else {
-    configFile = argResults[_configOption] ?? _defaultConfigFile;
+    if (argResults[_configOption] != null) {
+      configFile = argResults[_configOption];
+    }
     Translator(config).translate(http.Client());
   }
 }

@@ -53,25 +53,34 @@ class Translator {
     }
 
     final arbDir = _config['arb-dir'] as String? ?? "lib/l10n";
-    final templateFilename = _config['template-arb-file'] as String? ?? "app_en.arb";
-    final preferTemplateLang = _config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
+    final templateFilename =
+        _config['template-arb-file'] as String? ?? "app_en.arb";
+    final preferTemplateLang =
+        _config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
 
-    if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$').hasMatch(templateFilename)) {
+    if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$')
+        .hasMatch(templateFilename)) {
       stderr.writeln(NoTargetsProvidedException(
-          'templateFilename should be like: ' + r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$'));
+          'templateFilename should be like: '
+          r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$'));
       exit(1);
     }
 
-    final source = templateFilename.substring(templateFilename.indexOf(RegExp(r'[-_]')) + 1, templateFilename.indexOf('.arb'));
-    final name = templateFilename.substring(0, templateFilename.indexOf(RegExp(r'[-_]')));
-    stdout.writeln('Use source language: $source, name: $name, templateFilename: $templateFilename');
+    final source = templateFilename.substring(
+        templateFilename.indexOf(RegExp(r'[-_]')) + 1,
+        templateFilename.indexOf('.arb'));
+    final name = templateFilename.substring(
+        0, templateFilename.indexOf(RegExp(r'[-_]')));
+    stdout.writeln(
+        'Use source language: $source, name: $name, templateFilename: $templateFilename');
 
     final translations = <String, String>{};
     final encoder = JsonEncoder.withIndent('    ');
 
     for (final target in targets) {
       var preferLang = preferTemplateLang[target];
-      var arbTemplate = await _readTemplateFile(arbDir, name, preferLang ?? source);
+      var arbTemplate =
+          await _readTemplateFile(arbDir, name, preferLang ?? source);
 
       final toTranslate =
           List<MapEntry<String, dynamic>>.from(arbTemplate.entries);
@@ -83,7 +92,8 @@ class Translator {
             jsonDecode(arbFile.readAsStringSync()).cast<String, String>();
         toTranslate.removeWhere((element) =>
             prevTranslations.containsKey(element.key) &&
-            !(_arbOptions['@${element.key}']?['translator']?['force'] ?? false));
+            !(_arbOptions['@${element.key}']?['translator']?['force'] ??
+                false));
         translations.addAll(prevTranslations);
       }
 
@@ -144,21 +154,23 @@ class Translator {
     exit(0);
   }
 
-  Future<Map<String, dynamic>> _readTemplateFile(String arbDir, String name, String lang) async {
-    var path = '$arbDir/${name}_${lang}.arb';
+  Future<Map<String, dynamic>> _readTemplateFile(
+      String arbDir, String name, String lang) async {
+    var path = '$arbDir/${name}_$lang.arb';
     final templateFile = File(path);
     if (_templates[path] != null) return _templates[path]!;
 
-    final arbTemplate = jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
+    final arbTemplate =
+        jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
 
     // copy string metadata over from template, then remove from template
-    final _arbOptions = Map.from(arbTemplate)
+    final arbOptions = Map.from(arbTemplate)
       ..removeWhere((key, value) => !key.startsWith('@'));
     arbTemplate.removeWhere((key, value) => key.startsWith('@'));
 
     // remove strings that are marked ignore
     arbTemplate.removeWhere((key, value) =>
-    (_arbOptions['@$key']?['translator']?['ignore'] ?? false));
+        (arbOptions['@$key']?['translator']?['ignore'] ?? false));
 
     for (final entry in arbTemplate.entries) {
       arbTemplate[entry.key] = _encodeString(entry);

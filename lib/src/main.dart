@@ -8,12 +8,15 @@ import 'package:yaml/yaml.dart';
 const String _helpFlag = 'help';
 
 /// Yaml file used to configure Translator.
-const String configFile = 'l10n.yaml';
+String configFile = 'l10n.yaml';
 const String _translatorKey = 'translator';
 const String _defaultKeyFile = 'translator_key';
 
 /// Parses arguments from command line, providing help or running [Translator].
-Future<void> runWithArguments(List<String> arguments) async {
+Future<void> runWithArguments(List<String> arguments, {
+  String? yaml,
+}) async {
+  if (yaml != null) configFile = yaml;
   final ArgParser parser = ArgParser();
   parser.addFlag(_helpFlag, abbr: 'h', help: 'Usage help', negatable: false);
   final ArgResults argResults = parser.parse(arguments);

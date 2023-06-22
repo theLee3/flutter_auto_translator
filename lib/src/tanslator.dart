@@ -36,6 +36,10 @@ class Translator {
   // map for storing complex arb string variables
   final _complexMap = <String, String>{};
 
+  // cached templates
+  final _templates = <String, Map<String, dynamic>>{};
+  final Map<dynamic, dynamic> _arbOptions = {};
+
   /// Translate to all targets using [client].
   Future<void> translate(http.Client client) async {
     final keyFile = File(_config['key_file']);
@@ -48,35 +52,39 @@ class Translator {
       exit(1);
     }
 
-    final arbDir = _config['arb-dir'] as String;
-    final templateFilename = _config['template-arb-file'] as String;
-    final source = templateFilename.substring(4, 6);
+    final arbDir = _config['arb-dir'] as String? ?? "lib/l10n";
+    final templateFilename =
+        _config['template-arb-file'] as String? ?? "app_en.arb";
+    final preferTemplateLang =
+        _config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
 
-    final templateFile = File('$arbDir/$templateFilename');
-    final arbTemplate =
-        jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
-
-    final encoder = JsonEncoder.withIndent('    ');
-
-    // copy string metadata over from template, then remove from template
-    final arbOptions = Map.from(arbTemplate)
-      ..removeWhere((key, value) => !key.startsWith('@'));
-    arbTemplate.removeWhere((key, value) => key.startsWith('@'));
-
-    // remove strings that are marked ignore
-    arbTemplate.removeWhere((key, value) =>
-        (arbOptions['@$key']?['translator']?['ignore'] ?? false));
-
-    for (final entry in arbTemplate.entries) {
-      arbTemplate[entry.key] = _encodeString(entry);
+    if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$')
+        .hasMatch(templateFilename)) {
+      stderr.writeln(NoTargetsProvidedException(
+          'templateFilename should be like: '
+          r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$'));
+      exit(1);
     }
 
+    final source = templateFilename.substring(
+        templateFilename.indexOf(RegExp(r'[-_]')) + 1,
+        templateFilename.indexOf('.arb'));
+    final name = templateFilename.substring(
+        0, templateFilename.indexOf(RegExp(r'[-_]')));
+    stdout.writeln(
+        'Use source language: $source, name: $name, templateFilename: $templateFilename');
+
     final translations = <String, String>{};
+    final encoder = JsonEncoder.withIndent('    ');
 
     for (final target in targets) {
+      var preferLang = preferTemplateLang[target];
+      var arbTemplate =
+          await _readTemplateFile(arbDir, name, preferLang ?? source);
+
       final toTranslate =
           List<MapEntry<String, dynamic>>.from(arbTemplate.entries);
-      final arbFile = File('$arbDir/app_$target.arb');
+      final arbFile = File('$arbDir/${name}_$target.arb');
       if (arbFile.existsSync()) {
         // do not translate previously translated phrases
         // unless marked force
@@ -84,16 +92,17 @@ class Translator {
             jsonDecode(arbFile.readAsStringSync()).cast<String, String>();
         toTranslate.removeWhere((element) =>
             prevTranslations.containsKey(element.key) &&
-            !(arbOptions['@${element.key}']?['translator']?['force'] ?? false));
+            !(_arbOptions['@${element.key}']?['translator']?['force'] ??
+                false));
         translations.addAll(prevTranslations);
       }
 
       if (toTranslate.isEmpty) {
-        stdout.writeln('No changes to app_$target.arb');
+        stdout.writeln('No changes to ${name}_$target.arb');
         continue;
       }
 
-      stdout.write('Translating to $target...');
+      stdout.writeln('Translating ${preferLang ?? source} to $target...');
 
       // Google Translate requests are limited to 128 strings & 5k characters,
       // so iterate through in chunks if necessary
@@ -137,8 +146,37 @@ class Translator {
             : translations;
         arbFile.writeAsStringSync(encoder.convert(output));
       }
-      stdout.writeln('done.');
+
+      stdout.writeln('Translated ${preferLang ?? source} to $target.');
     }
+
+    stdout.writeln('done.');
+    exit(0);
+  }
+
+  Future<Map<String, dynamic>> _readTemplateFile(
+      String arbDir, String name, String lang) async {
+    var path = '$arbDir/${name}_$lang.arb';
+    final templateFile = File(path);
+    if (_templates[path] != null) return _templates[path]!;
+
+    final arbTemplate =
+        jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
+
+    // copy string metadata over from template, then remove from template
+    final arbOptions = Map.from(arbTemplate)
+      ..removeWhere((key, value) => !key.startsWith('@'));
+    arbTemplate.removeWhere((key, value) => key.startsWith('@'));
+
+    // remove strings that are marked ignore
+    arbTemplate.removeWhere((key, value) =>
+        (arbOptions['@$key']?['translator']?['ignore'] ?? false));
+
+    for (final entry in arbTemplate.entries) {
+      arbTemplate[entry.key] = _encodeString(entry);
+    }
+
+    return _templates[path] = arbTemplate;
   }
 
   Future<List<String>?> _translate({
@@ -166,6 +204,7 @@ class Translator {
 
     if (response.body.isEmpty) return null;
     final json = jsonDecode(response.body);
+    // stdout.write('auto_translate url: $url, content: $content, source: $source, target: $target, response: ${json}');
     if (json['error'] != null) {
       stderr.writeln(GoogleTranslateException('\n${json['error']['message']}'));
       exit(1);

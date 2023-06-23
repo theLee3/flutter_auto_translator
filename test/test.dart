@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:auto_translator/auto_translator.dart';
+import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mockito/annotations.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
 import 'package:test/test.dart';
 
@@ -28,34 +28,39 @@ void main() {
       Directory.current = currentDirectory;
     });
 
-    // Test with default key file location, all other parameters are required
+    // Test with default key file location & preferred languages
     test('default', () {
       setCurrentDirectory('default');
       File('l10n.yaml').writeAsStringSync('''
-arb-dir: lib/localization/l10n
-template-arb-file: app_en.arb
+arb-dir: lib/l10n
+template-arb-file: app_en-US.arb
 output-localization-file: app_localizations.dart
 
 translator:
   targets:
-    - es
+    - es-ES
     - ja
+  prefer-lang-templates: {
+    'fr': 'es-ES',
+    'ja': 'en-US'
+  }
 ''');
       File('translator_key').writeAsStringSync('s0meArb1tr4ryK3yV4lu3');
       expect(config, isNotNull);
-      expect(config['arb-dir'], 'lib/localization/l10n');
-      expect(config['template-arb-file'], 'app_en.arb');
+      expect(config['arb-dir'], 'lib/l10n');
+      expect(config['template-arb-file'], 'app_en-US.arb');
       expect(config['key_file'], 'translator_key');
-      expect(config['targets'], ['es', 'ja']);
+      expect(config['targets'], ['es-ES', 'ja']);
+      expect(config['prefer-lang-templates'], {'fr': 'es-ES', 'ja': 'en-US'});
       expect(
           File(config['key_file']).readAsStringSync(), 's0meArb1tr4ryK3yV4lu3');
     });
 
     // Test with custom key file location
     test('custom key file location', () {
-      setCurrentDirectory('custom');
+      setCurrentDirectory('custom-key-file');
       File('l10n.yaml').writeAsStringSync('''
-arb-dir: lib/localization/l10n
+arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 
@@ -67,14 +72,14 @@ translator:
 ''');
 
       expect(config, isNotNull);
-      expect(config['arb-dir'], 'lib/localization/l10n');
+      expect(config['arb-dir'], 'lib/l10n');
       expect(config['template-arb-file'], 'app_en.arb');
       expect(config['key_file'], 'path/to/key_file');
       expect(config['targets'], ['es', 'ja']);
     });
 
-    // l10n.yaml file is required
-    test('missing l10n.yaml', () {
+    // config file is required
+    test('missing config file', () {
       setCurrentDirectory('empty');
       expect(() => config, throwsA(const TypeMatcher<FileSystemException>()));
     });
@@ -89,9 +94,9 @@ translator:
 
   group('translate', () {
     final testDir = join('.dart_tool', 'arb_translator', 'test');
-    final l10nDir = join('lib', 'localization', 'l10n');
-    final enArbFile = File(join(l10nDir, 'app_en.arb'));
-    final esArbFile = File(join(l10nDir, 'app_es.arb'));
+    final l10nDir = join('lib', 'l10n');
+    final enArbFile = File(join(l10nDir, 'app_en-US.arb'));
+    final esArbFile = File(join(l10nDir, 'app_es-ES.arb'));
     final jaArbFile = File(join(l10nDir, 'app_ja.arb'));
 
     late String currentDirectory;
@@ -186,7 +191,7 @@ translator:
         final query = req['q'].cast<String>();
         final results = <String>[];
         final translations =
-            req['target'] == 'es' ? esTranslations : jaTranslations;
+            req['target'] == 'es-ES' ? esTranslations : jaTranslations;
         for (final s in query) {
           if (translations[s] != null) results.add(translations[s]!);
         }

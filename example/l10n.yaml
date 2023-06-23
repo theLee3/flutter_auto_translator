@@ -5,7 +5,12 @@ output-localization-file: app_localizations.dart
 translator:
   # key_file: translator_key
   targets:
-    - es
+    - es-ES
     - fr
     - ja
     - uk
+
+  prefer-lang-templates: {
+    'fr': 'en',
+    'ja': 'es-ES'
+  }

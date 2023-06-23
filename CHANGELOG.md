@@ -1,3 +1,9 @@
+## 1.1.0
+
+- Added support for preferred language templates per target language.
+- Added support for regional language codes (en-US, en-GB, es-ES, etc).
+- Default values now conform to the latest internationalization guidelines.
+
 ## 1.0.2
 
 - Always match translated ARB files' definition order to the template ARB file.

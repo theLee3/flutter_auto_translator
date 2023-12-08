@@ -1,3 +1,7 @@
+## 2.0.0
+
+- Migrated to the latest ARB format.
+
 ## 1.1.0
 
 - Added support for preferred language templates per target language.

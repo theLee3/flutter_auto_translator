@@ -16,6 +16,8 @@
             }
         }
     },
+    "birthday":
+            "{sex, select, male{His birthday} female{Her birthday} other{Their birthday}}",
     "tooltip": "Increment",
     "@tooltip": {
         "description": "Tooltip shown by floating action button."

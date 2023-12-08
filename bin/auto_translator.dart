@@ -1,10 +1,13 @@
 import 'dart:io';
 
-import 'package:auto_translator/auto_translator.dart';
+import 'package:auto_translator/src/main.dart';
 
 void main(List<String> arguments) {
-  const version = '1.1.0';
+  const version = '2.0.0';
   stdout.writeln('auto_translator v$version');
   stdout.writeln('═════════════════════');
-  runWithArguments(arguments);
+  runWithArguments(arguments).then((_) => exit(0)).catchError((error) {
+    stderr.writeln(error);
+    exit(1);
+  });
 }

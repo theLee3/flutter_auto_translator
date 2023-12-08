@@ -6,11 +6,12 @@ translator:
   # key_file: translator_key
   targets:
     - es-ES
+    - de
     - fr
     - ja
     - uk
 
   prefer-lang-templates: {
-    'fr': 'en',
-    'ja': 'es-ES'
+    'fr': 'es-ES',
+    'uk': 'de'
   }

@@ -8,6 +8,12 @@ A command-line tool that simplifies translation of an ARB template file to selec
 - Minimal Cloud Translate quota usage.
 - Works with simple & complex ARB strings, conditions, and variables.
 
+## Support the developer
+
+If you found this package useful, please consider contribuitng to it's continued development. Or just show the developer a little love & support. Every little bit helps!
+
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-grey?logo=buymeacoffee&logoColor=yellow)](https://ko-fi.com/M4M4G97OV)
+
 ## Getting Started
 
 ### 1. Setup Google Cloud Translate
@@ -24,7 +30,7 @@ Add auto_translator under dev_dependencies in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: "^1.1.0"
+  auto_translator: ^2.0.0
 ```
 
 ### 3. Setup the config files
@@ -63,7 +69,7 @@ Once configured, run the package from the command line.
 
 ```bash
 flutter pub get
-flutter pub run auto_translator
+dart run auto_translator
 ```
 
 All translations will be placed in the defined location and be compatible with `flutter_localizations` and `intl`.
@@ -88,7 +94,7 @@ You can also tell the translator to ignore a particular message with the `ignore
 
 ```yaml
 {
-  "doNotTranslate": "{mode, select, 0{$title1} 1{$title2} 2{$title3}}",
+  "doNotTranslate": "DO NOT TRANSLATE THIS STRING!!!",
   "@doNotTranslate": {
     "description": "...",
     "translator": {

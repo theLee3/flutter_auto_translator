@@ -44,7 +44,7 @@ class InvalidFormatException extends CustomException {
 }
 
 /// {@template GoogleTranslateException}
-/// Thrown when an eror occurs communicating with Google Cloud Translate.
+/// Thrown when an error occurs communicating with Google Cloud Translate.
 /// {@endtemplate}
 class GoogleTranslateException extends CustomException {
   /// {@macro GoogleTranslateException}

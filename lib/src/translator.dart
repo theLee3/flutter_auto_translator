@@ -115,8 +115,10 @@ class Translator {
       // maintain correct indices
       if (matchesTranslation[i].end < translation.length &&
           translation[matchesTranslation[i].end] == ' ' &&
-          (matchesTemplate[i].end == template.length ||
-              template[matchesTemplate[i].end] != ' ' ||
+          matchesTemplate[i].end < template.length &&
+          (!RegExp(r'''[.,!?'";:%=\-_\])}\W]''')
+                  .hasMatch(template[matchesTemplate[i].end]) ||
+              // template[matchesTemplate[i].end] != ' ' ||
               target.startsWith('ja'))) {
         translation = translation.replaceRange(
             matchesTranslation[i].end, matchesTranslation[i].end + 1, '');

@@ -7,6 +7,7 @@ A command-line tool that simplifies translation of an ARB template file to selec
 - Seamless integration with `flutter_localizations` and `intl` packages.
 - Minimal Cloud Translate quota usage.
 - Works with simple & complex ARB strings, conditions, and variables.
+- Uses placeholder examples for more accurate translations involving proper nouns and other unique cases.
 
 ## Support the developer
 
@@ -76,30 +77,46 @@ All translations will be placed in the defined location and be compatible with `
 
 ## Additional Usage
 
+### Placeholder Examples
+
+Some translations are more accurate when using an example in place of a generic placeholder variable name. `auto_translator` now passes a placeholder's example if provided to ensure better quality translations.
+
+```json
+"viewingArtwork": "Now viewing {artworkTitle}.",
+  "@viewingArtwork": {
+      "placeholders": {
+          "artworkTitle": {
+              "type": "String",
+              "example": "Mona Lisa"
+          }
+      }
+  }
+```
+
+### Force Translation
+
 To prevent unecessary Google Cloud Translate quota usage, messages that already exist in a target ARB file are not retranslated. You can force a translation by adding the `force` parameter to `translator` options in a message's metadata in the template file.
 
-```yaml
-{
-  "title": "New Title",
-  "@title": {
-    "description": "...",
-    "translator": {
-      "force": true
-    }
+```json
+"title": "New Title",
+"@title": {
+  "description": "...",
+  "translator": {
+    "force": true
   }
 }
 ```
 
+### Ignore ARB String
+
 You can also tell the translator to ignore a particular message with the `ignore` tag.
 
-```yaml
-{
-  "doNotTranslate": "DO NOT TRANSLATE THIS STRING!!!",
-  "@doNotTranslate": {
-    "description": "...",
-    "translator": {
-      "ignore": true
-    }
+```json
+"doNotTranslate": "DO NOT TRANSLATE THIS STRING!!!",
+"@doNotTranslate": {
+  "description": "...",
+  "translator": {
+    "ignore": true
   }
 }
 ```

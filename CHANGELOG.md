@@ -1,3 +1,8 @@
+## 2.1.0
+
+- Use placeholder example string if available for more accurate translations.
+- Fixed a bug that incorrectly removed whitespace following a word that was moved from the end of a string.
+
 ## 2.0.0
 
 - Migrated to the latest ARB format.

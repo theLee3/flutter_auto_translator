@@ -9,6 +9,7 @@ translator:
     - de
     - fr
     - ja
+    - tr
     - uk
 
   prefer-lang-templates: {

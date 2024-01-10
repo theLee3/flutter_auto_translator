@@ -21,5 +21,14 @@
     "tooltip": "Increment",
     "@tooltip": {
         "description": "Tooltip shown by floating action button."
+    },
+    "viewingArtwork": "Now viewing {artworkTitle}.",
+    "@viewingArtwork": {
+        "placeholders": {
+            "artworkTitle": {
+                "type": "String",
+                "example": "Mona Lisa"
+            }
+        }
     }
 }

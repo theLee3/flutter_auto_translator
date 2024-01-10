@@ -107,6 +107,9 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final modifiedTemplates = <String, Map<String, dynamic>>{};
   final templateMetadata = <String, Map<String, dynamic>>{};
 
+  // examples to use instead of placeholder variables
+  final examples = <String, String>{};
+
   // sort target order to account for preferred template languages
   for (final preferredTemplate in preferTemplateLang.entries) {
     final targetIndex = targets.indexOf(preferredTemplate.key),
@@ -134,6 +137,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
         Map.from(origTemplate),
         transformer: transformer,
         arbMetadata: templateMetadata[templatePath]!,
+        examples: examples,
       );
     }
 
@@ -172,7 +176,21 @@ Future<void> _translate(Map<String, dynamic> config) async {
       source: source,
       target: target,
     );
-    results.updateAll((key, result) => transformer.decode(result));
+
+    results.updateAll((key, result) {
+      var decodedString = transformer.decode(result);
+      final exampleMatches =
+          RegExp(r'___*.*__').allMatches(decodedString).toList().reversed;
+      for (final match in exampleMatches) {
+        final originalVariable =
+            examples[decodedString.substring(match.start, match.end)];
+        if (originalVariable != null) {
+          decodedString = decodedString.replaceRange(
+              match.start, match.end, originalVariable);
+        }
+      }
+      return decodedString;
+    });
     translations.addAll(results);
 
     if (translations.isNotEmpty) {
@@ -221,6 +239,7 @@ Map<String, dynamic> _buildTemplate(
   Map<String, dynamic> arbTemplate, {
   required Transformer transformer,
   required Map<String, dynamic> arbMetadata,
+  required Map<String, String> examples,
 }) {
   // remove strings that are marked ignore
   arbTemplate.removeWhere((key, value) =>
@@ -229,7 +248,21 @@ Map<String, dynamic> _buildTemplate(
   final entries = List<MapEntry<String, dynamic>>.from(arbTemplate.entries);
   for (final entry in entries) {
     try {
-      final encodedValue = transformer.encode(entry.value);
+      var value = entry.value as String;
+      final Map<String, Map<String, dynamic>> placeholders =
+          Map.from(arbMetadata['@${entry.key}']?['placeholders'] ?? {});
+      placeholders.removeWhere((key, value) => value['example'] == null);
+      for (final placeholder in placeholders.entries) {
+        var modifier = '_';
+        String key;
+        do {
+          modifier += '_';
+          key = '$modifier${placeholder.value['example']}__';
+        } while (examples.containsKey(key) && examples[key] != placeholder.key);
+        examples.putIfAbsent(key, () => '{${placeholder.key}}');
+        value = value.replaceAll('{${placeholder.key}}', key);
+      }
+      final encodedValue = transformer.encode(value);
       if (encodedValue is String) {
         arbTemplate[entry.key] = encodedValue;
       } else {

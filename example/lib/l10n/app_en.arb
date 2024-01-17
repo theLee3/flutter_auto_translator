@@ -1,8 +1,10 @@
 {
+    "@@locale": "en",
     "appTitle": "Localization Demo App",
     "@appTitle": {
         "description": "Name of app."
     },
+    "@_HOME_PAGE": {},
     "homePageTitle": "Localization Demo Home Page",
     "@homePageTitle": {
         "description": "Title shown in app bar on home page."
@@ -16,6 +18,7 @@
             }
         }
     },
+    "@_OTHER_STUFF": {},
     "birthday":
             "{sex, select, male{His birthday} female{Her birthday} other{Their birthday}}",
     "tooltip": "Increment",

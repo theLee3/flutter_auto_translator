@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -112,8 +113,17 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
   // sort target order to account for preferred template languages
   for (final preferredTemplate in preferTemplateLang.entries) {
-    final targetIndex = targets.indexOf(preferredTemplate.key),
+    var targetIndex = targets.indexOf(preferredTemplate.key),
         templateIndex = targets.indexOf(preferredTemplate.value);
+    // handle missing templates or targets used in preferred templates map
+    if (templateIndex < 0) {
+      templateIndex = targets.length;
+      targets.add(preferredTemplate.value);
+    }
+    if (targetIndex < 0) {
+      targetIndex = targets.length;
+      targets.add(preferredTemplate.key);
+    }
     if (templateIndex > targetIndex) {
       targets.insert(targetIndex, targets.removeAt(templateIndex));
     }
@@ -130,6 +140,12 @@ Future<void> _translate(Map<String, dynamic> config) async {
       final template =
           jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
       templateMetadata[templatePath] = _getArbMetadata(template);
+      // pull comments from metadata on first pass
+      if (!templateMetadata.containsKey('comments')) {
+        templateMetadata['comments'] =
+            (Map.from(templateMetadata[templatePath]!)
+              ..removeWhere((key, value) => key.startsWith('@')));
+      }
       final origTemplate = Map<String, dynamic>.from(template)
         ..removeWhere((key, value) => key.startsWith('@'));
       originalTemplates[templatePath] = origTemplate;
@@ -141,35 +157,91 @@ Future<void> _translate(Map<String, dynamic> config) async {
       );
     }
 
+    final currentArbContent = <String, dynamic>{};
     final translations = <String, String>{};
     final toTranslate =
         Map<String, dynamic>.from(modifiedTemplates[templatePath]!);
+    final previousTranslations = <String, String>{};
     final arbFile = File('$arbDir/${name}_$target.arb');
     var previousTranslationsCount = 0;
     if (arbFile.existsSync()) {
+      // cast {} to string to handle arb comments
+      currentArbContent.addAll(jsonDecode(arbFile.readAsStringSync()));
+      previousTranslations.addAll((Map.from(currentArbContent)
+            ..removeWhere((key, value) => key.startsWith('@')))
+          .cast());
       // do not translate previously translated phrases unless marked [force]
-      final Map<String, String> prevTranslations =
-          jsonDecode(arbFile.readAsStringSync()).cast<String, String>();
       toTranslate.removeWhere((key, value) {
         if (key.startsWith('@')) {
           key = key.substring(1, key.lastIndexOf(RegExp(r'_.*_')));
         }
-        return prevTranslations.containsKey(key) &&
+        return previousTranslations.containsKey(key) &&
             !(templateMetadata[templatePath]!['@$key']?['translator']
                     ?['force'] ??
                 false);
       });
-      previousTranslationsCount = prevTranslations.length;
-      translations.addAll(prevTranslations);
+      previousTranslationsCount = (Map.from(previousTranslations)
+            ..removeWhere((key, value) => key.startsWith('@')))
+          .length;
+      translations.addAll(previousTranslations);
+    }
+
+    var changesMade = 0;
+
+    final keys = previousTranslations.keys.toList(growable: false);
+    for (final key in keys) {
+      if (!originalTemplates[templatePath]!.containsKey(key) &&
+          !templateMetadata[templatePath]!.containsKey(key) &&
+          !templateMetadata['comments']!.values.contains(key)) {
+        currentArbContent.remove(key);
+        if (!key.startsWith('@')) previousTranslations.remove(key);
+        changesMade++;
+      }
+    }
+
+    for (final comment in templateMetadata['comments']!.entries) {
+      if (!currentArbContent.containsKey(comment.value)) {
+        currentArbContent[comment.value] = {};
+        changesMade++;
+      }
     }
 
     if (toTranslate.isEmpty) {
-      skippedLanguages++;
-      stdout.writeln('No changes to ${name}_$target.arb');
+      if (changesMade == 0) {
+        skippedLanguages++;
+        stdout.writeln('No changes to ${name}_$target.arb');
+      } else {
+        final output = <String, dynamic>{};
+        // add target locale identifier if used in template file
+        if (templateMetadata[templatePath]!.containsKey('@@locale')) {
+          output['@@locale'] = target;
+        }
+        // match entry order to the original template file
+        for (final key in originalTemplates[templatePath]!.keys) {
+          // add comments from the original template file
+          if (templateMetadata['comments']!.containsKey(key)) {
+            output[templateMetadata['comments']![key]] = {};
+          }
+          output[key] = currentArbContent[key];
+        }
+        // handle a comment at the end of the file
+        if (templateMetadata['comments']!.containsKey('{}')) {
+          output[templateMetadata['comments']!['{}']] = {};
+        }
+        arbFile.writeAsStringSync(encoder.convert(output));
+        stdout.writeln(
+          'Nothing to translate to $target. $changesMade other '
+          '${changesMade == 1 ? 'change' : 'changes'} made.',
+        );
+      }
       continue;
     }
 
-    stdout.write('Translating from $source to $target...');
+    final timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      stdout.write(
+        'Translating from $source to $target ${_Spinner(timer.tick)}\r',
+      );
+    });
 
     final results = await translator.translate(
       toTranslate: toTranslate,
@@ -210,14 +282,29 @@ Future<void> _translate(Map<String, dynamic> config) async {
         translations[key] = transformer.decode(Map.fromEntries(complexParts));
       }
 
+      currentArbContent.addAll(translations);
+
+      final output = <String, dynamic>{};
+      // add target locale identifier if used in template file
+      if (templateMetadata[templatePath]!.containsKey('@@locale')) {
+        output['@@locale'] = target;
+      }
       // match entry order to the original template file
-      final output = {
-        for (final key in originalTemplates[templatePath]!.keys)
-          key: translations[key]
-      };
+      for (final key in originalTemplates[templatePath]!.keys) {
+        // add comments from the original template file
+        if (templateMetadata['comments']!.containsKey(key)) {
+          output[templateMetadata['comments']![key]] = {};
+        }
+        output[key] = currentArbContent[key];
+      }
+      // handle a comment at the end of the file
+      if (templateMetadata['comments']!.containsKey('{}')) {
+        output[templateMetadata['comments']!['{}']] = {};
+      }
       arbFile.writeAsStringSync(encoder.convert(output));
     }
-    stdout.writeln('done.');
+
+    timer.cancel();
     final translationsCount = translations.length - previousTranslationsCount;
     stdout.writeln('Translated $translationsCount '
         'entr${translationsCount == 1 ? 'y' : 'ies'} from $source to $target.');
@@ -232,8 +319,20 @@ Future<void> _translate(Map<String, dynamic> config) async {
   }
 }
 
-Map<String, dynamic> _getArbMetadata(Map<String, dynamic> arbTemplate) =>
-    Map.from(arbTemplate)..removeWhere((key, value) => !key.startsWith('@'));
+Map<String, dynamic> _getArbMetadata(Map<String, dynamic> arbTemplate) {
+  final metadata = <String, dynamic>{};
+  final keysIterator = arbTemplate.keys.iterator;
+  while (keysIterator.moveNext()) {
+    final key = keysIterator.current;
+    if (key.startsWith('@_')) {
+      // add key/value in reverse for easy separation & lookup later
+      metadata[keysIterator.moveNext() ? keysIterator.current : '{}'] = key;
+    } else if (key.startsWith('@')) {
+      metadata[key] = arbTemplate[key];
+    }
+  }
+  return metadata;
+}
 
 Map<String, dynamic> _buildTemplate(
   Map<String, dynamic> arbTemplate, {
@@ -277,4 +376,14 @@ Map<String, dynamic> _buildTemplate(
   }
 
   return arbTemplate;
+}
+
+class _Spinner {
+  const _Spinner(int ticks) : _index = ticks % 10;
+
+  final int _index;
+  final _segments = const ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+  @override
+  String toString() => _segments[_index];
 }

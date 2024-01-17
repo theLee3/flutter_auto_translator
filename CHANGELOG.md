@@ -1,3 +1,8 @@
+## 2.2.0
+
+- Add support for ARB comments.
+- Translation entries are now removed when corresponding entries are removed from the template.
+
 ## 2.1.0
 
 - Use placeholder example string if available for more accurate translations.

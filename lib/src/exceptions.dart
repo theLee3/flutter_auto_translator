@@ -51,6 +51,22 @@ class GoogleTranslateException extends CustomException {
   const GoogleTranslateException([message]) : super(message);
 }
 
+/// {@template DeepLTranslateException}
+/// Thrown when an error occurs communicating with DeepL Translate.
+/// {@endtemplate}
+class DeepLTranslateException extends CustomException {
+  /// {@macro DeepLTranslateException}
+  const DeepLTranslateException([message]) : super(message);
+}
+
+/// {@template UnsopportedTool}
+/// Thrown when an unsupported translating service is used in the l10n.yaml file.
+/// {@endtemplate}
+class UnsopportedTool extends CustomException {
+  /// {@macro UnsopportedTool}
+  const UnsopportedTool([message]) : super(message);
+}
+
 /// Generic help message linking to package usage guide.
 String get helpMessage =>
     'Please visit https://pub.dev/packages/auto_translator for usage guide.';

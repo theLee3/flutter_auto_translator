@@ -8,6 +8,7 @@ import 'package:auto_translator/src/transformer.dart';
 import 'package:yaml/yaml.dart';
 
 import 'translator.dart';
+import 'translate_backend.dart';
 
 const _helpFlag = 'help';
 const _configOption = 'config-file';
@@ -81,6 +82,11 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final arbDir = config['arb-dir'] as String? ?? "lib/l10n";
   final templateFilename =
       config['template-arb-file'] as String? ?? "app_en.arb";
+  final translateBackendOptions =
+      TranslateBackend.values.where((e) => e.name == config['translate-tool']);
+  final translateBackend = translateBackendOptions.isEmpty
+      ? TranslateBackend.googleTranslate
+      : translateBackendOptions.first;
   final Map<String, dynamic> preferTemplateLang =
       config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
 
@@ -243,11 +249,14 @@ Future<void> _translate(Map<String, dynamic> config) async {
       );
     });
 
+    stdout.write(
+        'Translating from $source to $target using $translateBackend...');
+
     final results = await translator.translate(
-      toTranslate: toTranslate,
-      source: source,
-      target: target,
-    );
+        toTranslate: toTranslate,
+        source: source,
+        target: target,
+        translateBackend: translateBackend);
 
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);

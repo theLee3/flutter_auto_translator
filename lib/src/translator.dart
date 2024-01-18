@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 
 import 'package:auto_translator/src/exceptions.dart';
+import 'translate_backend.dart';
 import 'package:http/http.dart' as http show Client;
 
 const _googleApiUrl = 'googleapis.com';
@@ -19,11 +21,11 @@ class Translator {
   final _client = http.Client();
 
   /// Translate values in [toTranslate] from [source] language to [target] language.
-  Future<Map<String, String>> translate({
-    required Map<String, dynamic> toTranslate,
-    required String source,
-    required String target,
-  }) async {
+  Future<Map<String, String>> translate(
+      {required Map<String, dynamic> toTranslate,
+      required String source,
+      required String target,
+      required TranslateBackend translateBackend}) async {
     final translations = <String, String>{};
 
     // Google Translate requests are limited to 128 strings & 5k characters,
@@ -42,14 +44,28 @@ class Translator {
         final removedEntry = values.removeLast();
         charCount -= removedEntry.length;
       }
+      var result;
 
-      final result = await _translate(
-        client: _client,
-        content: values,
-        source: source,
-        target: target,
-        apiKey: _apiKey,
-      );
+      switch (translateBackend) {
+        case TranslateBackend.googleTranslate:
+          result = await _translate(
+            client: _client,
+            content: values,
+            source: source,
+            target: target,
+            apiKey: _apiKey,
+          );
+          break;
+        case TranslateBackend.deepL:
+          result = await _deeplTranslate(
+            client: _client,
+            content: values,
+            source: source,
+            target: target,
+            apiKey: _apiKey,
+          );
+          break;
+      }
       if (result != null) {
         final keys = List.unmodifiable(sublist.map((e) => e.key));
         for (var i = 0; i < keys.length; i++) {
@@ -95,6 +111,39 @@ class Translator {
 
     return json['data']['translations']
         .map((e) => e['translatedText'])
+        .toList(growable: false)
+        .cast<String>();
+  }
+
+  Future<List<String>?> _deeplTranslate({
+    required http.Client client,
+    required List<String> content,
+    required String source,
+    required String target,
+    required String apiKey,
+  }) async {
+    final url = Uri.https("api-free.deepl.com", "/v2/translate");
+
+    final response = await client.post(
+      url,
+      headers: {
+        'Authorization': 'DeepL-Auth-Key $apiKey',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(
+          {'text': content, 'target_lang': target, 'source_lang': source}),
+    );
+
+    if (response.body.isEmpty) return null;
+
+    final json = jsonDecode(utf8.decode(response.bodyBytes));
+    if (json['error'] != null) {
+      throw DeepLTranslateException('\n${json['error']['message']}');
+    }
+
+    return json['translations']
+        .map((e) => e['text'])
         .toList(growable: false)
         .cast<String>();
   }

@@ -27,7 +27,7 @@ NOTE: This is the default location. You will see how to specify a different loca
 
 ### (Optional) Setup DeepL Translate
 
-If you do not have DeepL API access, follow DeepL's guide to creating an account and obtaining API access [here] (https://www.deepl.com/pro/change-plan?cta=apiDocsHeader#developer)
+If you do not have DeepL API access, follow DeepL's guide to creating an account and obtaining API access [here](https://www.deepl.com/pro/change-plan?cta=apiDocsHeader#developer)
 
 Save your DeepL API key to a file in your project root called `deepl_key`.
 
@@ -50,7 +50,8 @@ If you have not already created the `l10n.yaml` file, do so now.
 arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
-### Optional: Set translator-tool if you choose to use a different translate like DeepL. Defaults to Google Translate.
+### Optional: Set translator-tool if you choose to use a different translate like DeepL.
+#Defaults to Google Translate.
 #translate-tool: deepl
 
 translator:

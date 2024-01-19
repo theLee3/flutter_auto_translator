@@ -56,7 +56,7 @@ class Translator {
             apiKey: _apiKey,
           );
           break;
-        case TranslateBackend.deepL:
+        case TranslateBackend.deepl:
           result = await _deeplTranslate(
             client: _client,
             content: values,

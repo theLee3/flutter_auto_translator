@@ -1,1 +1,1 @@
-enum TranslateBackend { googleTranslate, deepL }
+enum TranslateBackend { googleTranslate, deepl }

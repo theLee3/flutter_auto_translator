@@ -16,6 +16,7 @@ const _configOption = 'config-file';
 const _defaultConfigFile = 'l10n.yaml';
 const _translatorKey = 'translator';
 const _defaultKeyFile = 'translator_key';
+const _deeplKeyFile = 'deepl_key';
 
 /// Parses arguments from command line, providing help or generating translations.
 Future<void> runWithArguments(List<String> arguments) async {
@@ -68,7 +69,15 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
       config[entry.key] = entry.value;
     }
   }
-  config.putIfAbsent('key_file', () => _defaultKeyFile);
+  final translateBackendOptions =
+      TranslateBackend.values.where((e) => e.name == config['translate-tool']);
+  final translateBackend = translateBackendOptions.isEmpty
+      ? TranslateBackend.googleTranslate
+      : translateBackendOptions.first;
+  config['translateBackend'] = translateBackend;
+  config['key_file'] = translateBackend == TranslateBackend.googleTranslate
+      ? _defaultKeyFile
+      : _deeplKeyFile;
   return config;
 }
 
@@ -82,11 +91,6 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final arbDir = config['arb-dir'] as String? ?? "lib/l10n";
   final templateFilename =
       config['template-arb-file'] as String? ?? "app_en.arb";
-  final translateBackendOptions =
-      TranslateBackend.values.where((e) => e.name == config['translate-tool']);
-  final translateBackend = translateBackendOptions.isEmpty
-      ? TranslateBackend.googleTranslate
-      : translateBackendOptions.first;
   final Map<String, dynamic> preferTemplateLang =
       config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
 
@@ -250,13 +254,13 @@ Future<void> _translate(Map<String, dynamic> config) async {
     });
 
     stdout.write(
-        'Translating from $source to $target using $translateBackend...');
+        'Translating from $source to $target using ${config['translateBackend']}\n');
 
     final results = await translator.translate(
         toTranslate: toTranslate,
         source: source,
         target: target,
-        translateBackend: translateBackend);
+        translateBackend: config['translateBackend']);
 
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);

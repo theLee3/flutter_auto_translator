@@ -119,7 +119,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final templateMetadata = <String, Map<String, dynamic>>{};
 
   // examples to use instead of placeholder variables
-  final examples = <String, String>{};
+  final List<String> examples = [];
 
   // sort target order to account for preferred template languages
   for (final preferredTemplate in preferTemplateLang.entries) {
@@ -264,15 +264,15 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);
-      final exampleMatches =
-          RegExp(r'___*.*__').allMatches(decodedString).toList().reversed;
+      final exampleMatches = RegExp(r'<.*>').allMatches(decodedString).toList();
+      int match_num = 0;
       for (final match in exampleMatches) {
-        final originalVariable =
-            examples[decodedString.substring(match.start, match.end)];
+        final originalVariable = examples[match_num];
         if (originalVariable != null) {
           decodedString = decodedString.replaceRange(
               match.start, match.end, originalVariable);
         }
+        match_num += 1;
       }
       return decodedString;
     });
@@ -351,7 +351,7 @@ Map<String, dynamic> _buildTemplate(
   Map<String, dynamic> arbTemplate, {
   required Transformer transformer,
   required Map<String, dynamic> arbMetadata,
-  required Map<String, String> examples,
+  required List<String> examples,
 }) {
   // remove strings that are marked ignore
   arbTemplate.removeWhere((key, value) =>
@@ -365,13 +365,10 @@ Map<String, dynamic> _buildTemplate(
           Map.from(arbMetadata['@${entry.key}']?['placeholders'] ?? {});
       placeholders.removeWhere((key, value) => value['example'] == null);
       for (final placeholder in placeholders.entries) {
-        var modifier = '_';
-        String key;
-        do {
-          modifier += '_';
-          key = '$modifier${placeholder.value['example']}__';
-        } while (examples.containsKey(key) && examples[key] != placeholder.key);
-        examples.putIfAbsent(key, () => '{${placeholder.key}}');
+        // the prologue and epilogue are <x> since these tags avoid bugs
+        // ignore: prefer_interpolation_to_compose_strings
+        String key = '${'<x>' + placeholder.value['example']}<x>';
+        examples.add('{${placeholder.key}}');
         value = value.replaceAll('{${placeholder.key}}', key);
       }
       final encodedValue = transformer.encode(value);

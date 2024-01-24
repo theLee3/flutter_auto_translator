@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -46,7 +47,6 @@ Future<void> runWithArguments(List<String> arguments) async {
 
       final Map<String, dynamic> config =
           _mapConfigEntries((yamlMap as Map).entries);
-
       try {
         await _translate(config);
       } on FileSystemException {
@@ -62,18 +62,21 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
   final Map<String, dynamic> config = <String, dynamic>{};
   for (final entry in entries) {
     if (entry.key == _translatorKey) {
-      config.addAll(_mapConfigEntries(YamlMap.wrap(entry.value).entries));
+      config.addAll(Map<String, dynamic>.from(YamlMap.wrap(entry.value)));
     } else if (entry.value is YamlList) {
       config[entry.key] = (entry.value as YamlList).toList();
     } else {
       config[entry.key] = entry.value;
     }
   }
-  final translateBackendOptions =
-      TranslateBackend.values.where((e) => e.name == config['translate-tool']);
-  final translateBackend = translateBackendOptions.isEmpty
-      ? TranslateBackend.googleTranslate
-      : translateBackendOptions.first;
+  final TranslateBackend translateBackend;
+  try {
+    translateBackend = TranslateBackend.values
+        .firstWhere((e) => e.name == config['translate-tool']);
+  } catch (e) {
+    throw UnsopportedTool(
+        "Please specify a valid translating service in the yaml file");
+  }
   config['translateBackend'] = translateBackend;
   config['key_file'] = translateBackend == TranslateBackend.googleTranslate
       ? _defaultKeyFile
@@ -264,11 +267,13 @@ Future<void> _translate(Map<String, dynamic> config) async {
     int matchNum = 0;
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);
-      final exampleMatches = RegExp(r'<.*>').allMatches(decodedString).toList();
+      final exampleMatches =
+          RegExp(r'<x>.+?<x>').allMatches(decodedString).toList();
       for (final match in exampleMatches) {
         final originalVariable = examples[matchNum];
-        decodedString = decodedString.replaceRange(
-            match.start, match.end, originalVariable);
+        decodedString = decodedString
+            .replaceRange(match.start, match.end, originalVariable)
+            .replaceAll('<x>', '');
         matchNum += 1;
       }
       return decodedString;
@@ -362,7 +367,13 @@ Map<String, dynamic> _buildTemplate(
           Map.from(arbMetadata['@${entry.key}']?['placeholders'] ?? {});
       placeholders.removeWhere((key, value) => value['example'] == null);
       for (final placeholder in placeholders.entries) {
-        // the prologue and epilogue are <x> since these tags avoid bugs
+        /* The prologue and epilogue are <x> since these tags avoid bugs.
+        For instance use of smybols like _'s can lead to the smybol vanishing
+        if the placeholder is moved to the beginning of the sentence.
+        Similarly '<' on it's own has potential issues of DeepL changing the
+        symbol into ⟨ ⟩. However it is possible to specify that <x>
+        (or some custom XML-like tags) should be left untouched.
+        */
         // ignore: prefer_interpolation_to_compose_strings
         String key = '${'<x>' + placeholder.value['example']}<x>';
         examples.add('{${placeholder.key}}');

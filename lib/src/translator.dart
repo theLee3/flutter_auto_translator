@@ -131,8 +131,13 @@ class Translator {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: jsonEncode(
-          {'text': content, 'target_lang': target, 'source_lang': source}),
+      body: jsonEncode({
+        'text': content,
+        'target_lang': target,
+        'source_lang': source,
+        'tag_handling': 'xml',
+        'ignore_tags': ['x']
+      }),
     );
 
     if (response.body.isEmpty) return null;

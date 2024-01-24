@@ -1,3 +1,8 @@
+## 2.3.0
+
+- Added translate-tool configuartion to support for DeepL Translation tool.
+- Fixed bugs that occured when replacing placeholders and parameters.
+
 ## 2.2.0
 
 - Add support for ARB comments.

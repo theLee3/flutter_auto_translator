@@ -37,7 +37,7 @@ Add auto_translator under dev_dependencies in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: ^2.2.0
+  auto_translator: ^2.3.0
 ```
 
 ### 3. Setup the config files
@@ -50,9 +50,8 @@ If you have not already created the `l10n.yaml` file, do so now.
 arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
-### Optional: Set translator-tool if you choose to use a different translate like DeepL.
 #Defaults to Google Translate.
-#translate-tool: deepl
+translate-tool: Google
 
 translator:
   targets:

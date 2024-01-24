@@ -261,18 +261,15 @@ Future<void> _translate(Map<String, dynamic> config) async {
         source: source,
         target: target,
         translateBackend: config['translateBackend']);
-
+    int matchNum = 0;
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);
       final exampleMatches = RegExp(r'<.*>').allMatches(decodedString).toList();
-      int match_num = 0;
       for (final match in exampleMatches) {
-        final originalVariable = examples[match_num];
-        if (originalVariable != null) {
-          decodedString = decodedString.replaceRange(
-              match.start, match.end, originalVariable);
-        }
-        match_num += 1;
+        final originalVariable = examples[matchNum];
+        decodedString = decodedString.replaceRange(
+            match.start, match.end, originalVariable);
+        matchNum += 1;
       }
       return decodedString;
     });

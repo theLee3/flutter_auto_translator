@@ -69,13 +69,18 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
       config[entry.key] = entry.value;
     }
   }
+  if (!config.containsKey('translate-tool')) {
+    print(
+        "No translate tool was specified in the yaml file, using Google Translate.");
+    config['translate-tool'] = "googleTranslate";
+  }
   final TranslateBackend translateBackend;
   try {
     translateBackend = TranslateBackend.values
         .firstWhere((e) => e.name == config['translate-tool']);
   } catch (e) {
     throw UnsopportedTool(
-        "Please specify a valid translating service in the yaml file");
+        "Please specify a valid translating service in the yaml file.");
   }
   config['translateBackend'] = translateBackend;
   config['key_file'] = translateBackend == TranslateBackend.googleTranslate
@@ -375,7 +380,7 @@ Map<String, dynamic> _buildTemplate(
         (or some custom XML-like tags) should be left untouched.
         */
         // ignore: prefer_interpolation_to_compose_strings
-        String key = '${'<x>' + placeholder.value['example']}<x>';
+        String key = '<x>${placeholder.value['example']}<x>';
         examples.add('{${placeholder.key}}');
         value = value.replaceAll('{${placeholder.key}}', key);
       }

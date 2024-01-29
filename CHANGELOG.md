@@ -1,6 +1,6 @@
 ## 2.3.0
 
-- Added translate-tool configuartion to support for DeepL Translation tool.
+- Added translate-tool configuration to support DeepL Translation tool.
 - Fixed bugs that occured when replacing placeholders and parameters.
 
 ## 2.2.0

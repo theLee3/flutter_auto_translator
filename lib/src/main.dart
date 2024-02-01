@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -9,15 +8,13 @@ import 'package:auto_translator/src/transformer.dart';
 import 'package:yaml/yaml.dart';
 
 import 'translator.dart';
-import 'translate_backend.dart';
 
 const _helpFlag = 'help';
 const _configOption = 'config-file';
 
 const _defaultConfigFile = 'l10n.yaml';
 const _translatorKey = 'translator';
-const _defaultKeyFile = 'translator_key';
-const _deeplKeyFile = 'deepl_key';
+const _defaultKeyFile = 'translator_keys';
 
 /// Parses arguments from command line, providing help or generating translations.
 Future<void> runWithArguments(List<String> arguments) async {
@@ -35,26 +32,23 @@ Future<void> runWithArguments(List<String> arguments) async {
   if (argResults[_helpFlag]) {
     stdout.writeln(helpMessage);
   } else {
-    final configFile = File(argResults[_configOption] ?? _defaultConfigFile);
-    try {
-      final yamlString = configFile.readAsStringSync();
-      final yamlMap = loadYaml(yamlString);
+    final configFileName = argResults[_configOption] ?? _defaultConfigFile;
+    final configFile = File(configFileName);
 
-      if (yamlMap[_translatorKey] is! Map) {
-        throw ConfigNotFoundException(
-            '`$configFile` is missing `translator` section or it is configured incorrectly.');
-      }
-
-      final Map<String, dynamic> config =
-          _mapConfigEntries((yamlMap as Map).entries);
-      try {
-        await _translate(config);
-      } on FileSystemException {
-        throw GoogleTranslateException('`${config['key_file']} not found.');
-      }
-    } on FileSystemException {
+    if (!configFile.existsSync()) {
       throw ConfigNotFoundException('`$configFile` not found.');
     }
+    final yamlString = configFile.readAsStringSync();
+    final yamlMap = loadYaml(yamlString);
+
+    if (yamlMap[_translatorKey] is! Map) {
+      throw ConfigNotFoundException(
+          '`$configFile` is missing `translator` section or it is configured incorrectly.');
+    }
+
+    final Map<String, dynamic> config =
+        _mapConfigEntries((yamlMap as Map).entries);
+    await _translate(config);
   }
 }
 
@@ -69,38 +63,38 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
       config[entry.key] = entry.value;
     }
   }
-  if (!config.containsKey('translate-tool')) {
+  if (!config.containsKey('service')) {
     print(
-        "No translate tool was specified in the yaml file, using Google Translate.");
-    config['translate-tool'] = "googleTranslate";
+      'No translator service was specified in the yaml file, using Google Cloud Translate.',
+    );
+    config['service'] = 'Google';
   }
-  final TranslateBackend translateBackend;
-  try {
-    translateBackend = TranslateBackend.values
-        .firstWhere((e) => e.name == config['translate-tool']);
-  } catch (e) {
-    throw UnsopportedTool(
-        "Please specify a valid translating service in the yaml file.");
-  }
-  config['translateBackend'] = translateBackend;
-  config['key_file'] = translateBackend == TranslateBackend.googleTranslate
-      ? _defaultKeyFile
-      : _deeplKeyFile;
+  config.putIfAbsent('key_file', () => _defaultKeyFile);
   return config;
 }
 
 Future<void> _translate(Map<String, dynamic> config) async {
-  final targets = (config['targets'] as List?)?.cast<String>() ?? [];
+  final targets = List<String>.from(config['targets'] as List? ?? []);
   if (targets.isEmpty) {
     throw NoTargetsProvidedException(
         'No targets were provided. There\'s nothing for me to do.');
   }
 
-  final arbDir = config['arb-dir'] as String? ?? "lib/l10n";
+  final arbDir = config['arb-dir'] as String? ?? 'lib/l10n';
   final templateFilename =
-      config['template-arb-file'] as String? ?? "app_en.arb";
+      config['template-arb-file'] as String? ?? 'app_en.arb';
   final Map<String, dynamic> preferTemplateLang =
       config['prefer-lang-templates']?.cast<String, dynamic>() ?? {};
+  final preferTranslatorService = <String, dynamic>{};
+  for (final entry in Map<String, dynamic>.from(
+          config['prefer-service']?.cast<String, dynamic>() ?? {})
+      .entries) {
+    final service = entry.key.toLowerCase();
+    final targets = List<String>.from(entry.value);
+    for (final target in targets) {
+      preferTranslatorService[target] = service;
+    }
+  }
 
   if (!RegExp(r'^[a-zA-Z0-9]+_[a-zA-Z0-9_\-]+\.arb$')
       .hasMatch(templateFilename)) {
@@ -117,9 +111,63 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
   final encoder = JsonEncoder.withIndent('    ');
 
-  final apiKey = File(config['key_file']).readAsStringSync();
+  if (!File(config['key_file']).existsSync()) {
+    // fallback to translator_key file for backwards compatibility
+    if (config['key_file'] == _defaultKeyFile &&
+        File('translator_key').existsSync()) {
+      config['key_file'] = 'translator_key';
+    } else {
+      throw MissingTranslatorKeyException(
+        'Could not find file: ${File(config['key_file']).path}',
+      );
+    }
+  }
+
+  final keyFileData = File(config['key_file']).readAsStringSync();
+  final apiKeys = <String, String>{};
+  // handle simple api key string file for backwards compatibility
+  if (!keyFileData.startsWith('{') || !keyFileData.endsWith('}')) {
+    apiKeys['default'] = keyFileData;
+  } else {
+    try {
+      final json = jsonDecode(keyFileData) as Map<String, dynamic>;
+      for (final entry in json.entries) {
+        apiKeys[entry.key.toLowerCase()] = entry.value.toString();
+      }
+    } catch (error) {
+      throw MalformedTranslatorKeyFileException();
+    }
+  }
   final transformer = Transformer();
-  final translator = Translator(apiKey);
+
+  getTranslator(String name) {
+    final apiKey = apiKeys[name] ?? apiKeys['default'];
+    switch (name) {
+      case 'google':
+        if (apiKey == null) {
+          throw MissingTranslatorKeyException('No key provided for Google.');
+        }
+        return Translator.google(apiKey);
+      case 'deepl':
+        if (apiKey == null) {
+          throw MissingTranslatorKeyException('No key provided for DeepL.');
+        }
+        return Translator.deepL(apiKey);
+      default:
+        throw UnsupportedTranslatorServiceException(
+          '$name is not a valid translator service.',
+        );
+    }
+  }
+
+  final defaultTranslatorService = config['service'].toString().toLowerCase();
+  final translators = <String, Translator>{};
+
+  translators[defaultTranslatorService] =
+      getTranslator(defaultTranslatorService);
+  for (final entry in preferTranslatorService.entries) {
+    translators.putIfAbsent(entry.key, () => getTranslator(entry.key));
+  }
 
   // cached templates
   final originalTemplates = <String, Map<String, dynamic>>{};
@@ -151,7 +199,9 @@ Future<void> _translate(Map<String, dynamic> config) async {
   var skippedLanguages = 0;
 
   for (final target in targets) {
-    final source = preferTemplateLang[target] ?? defaultSource;
+    final source = preferTemplateLang[target]?.toString() ?? defaultSource;
+    final translatorService = (preferTranslatorService[target]?.toString() ??
+        defaultTranslatorService);
     final templatePath = '$arbDir/${name}_$source.arb';
     if (!modifiedTemplates.containsKey(templatePath)) {
       final templateFile = File(templatePath);
@@ -225,6 +275,8 @@ Future<void> _translate(Map<String, dynamic> config) async {
     }
 
     if (toTranslate.isEmpty) {
+      if (templateMetadata[templatePath]!.containsKey('@@locale') &&
+          !currentArbContent.containsKey('@@locale')) changesMade++;
       if (changesMade == 0) {
         skippedLanguages++;
         stdout.writeln('No changes to ${name}_$target.arb');
@@ -232,7 +284,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
         final output = <String, dynamic>{};
         // add target locale identifier if used in template file
         if (templateMetadata[templatePath]!.containsKey('@@locale')) {
-          output['@@locale'] = target;
+          output['@@locale'] = target.replaceAll('-', '_');
         }
         // match entry order to the original template file
         for (final key in originalTemplates[templatePath]!.keys) {
@@ -255,20 +307,16 @@ Future<void> _translate(Map<String, dynamic> config) async {
       continue;
     }
 
+    final translator = translators[translatorService]!;
+
     final timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       stdout.write(
-        'Translating from $source to $target ${_Spinner(timer.tick)}\r',
+        'Translating from $source to $target using ${translator.name} ${_Spinner(timer.tick)}\r',
       );
     });
 
-    stdout.write(
-        'Translating from $source to $target using ${config['translateBackend']}\n');
-
     final results = await translator.translate(
-        toTranslate: toTranslate,
-        source: source,
-        target: target,
-        translateBackend: config['translateBackend']);
+        toTranslate: toTranslate, source: source, target: target);
     int matchNum = 0;
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);
@@ -307,7 +355,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
       final output = <String, dynamic>{};
       // add target locale identifier if used in template file
       if (templateMetadata[templatePath]!.containsKey('@@locale')) {
-        output['@@locale'] = target;
+        output['@@locale'] = target.replaceAll('-', '_');
       }
       // match entry order to the original template file
       for (final key in originalTemplates[templatePath]!.keys) {
@@ -327,7 +375,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
     timer.cancel();
     final translationsCount = translations.length - previousTranslationsCount;
     stdout.writeln('Translated $translationsCount '
-        'entr${translationsCount == 1 ? 'y' : 'ies'} from $source to $target.');
+        'entr${translationsCount == 1 ? 'y' : 'ies'} from $source to $target using ${translator.name}.');
   }
 
   final targetsTranslated = targets.length - skippedLanguages;
@@ -379,7 +427,6 @@ Map<String, dynamic> _buildTemplate(
         symbol into ⟨ ⟩. However it is possible to specify that <x>
         (or some custom XML-like tags) should be left untouched.
         */
-        // ignore: prefer_interpolation_to_compose_strings
         String key = '<x>${placeholder.value['example']}<x>';
         examples.add('{${placeholder.key}}');
         value = value.replaceAll('{${placeholder.key}}', key);

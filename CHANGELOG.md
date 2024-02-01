@@ -1,7 +1,11 @@
 ## 2.3.0
 
-- Added translate-tool configuration to support DeepL Translation tool.
-- Fixed bugs that occured when replacing placeholders and parameters.
+- Added support for DeepL Translation.
+- Added `service` configuration option to support different translation services.
+- Added `prefer-service` configuration option to support multiple translator services on a per-language basis.
+- Added `MissingTranslatorKeyException` and `MalformedTranslatorKeyFileException` for key file errors.
+- Fixed bugs that could occur when translating placeholders with examples.
+- Bumped minimum Dart SDK to 3.0.0.
 
 ## 2.2.0
 

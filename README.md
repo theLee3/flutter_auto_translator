@@ -25,13 +25,19 @@ Then save your API key to a file in your project root called `translator_key`.
 
 NOTE: This is the default location. You will see how to specify a different location later in this guide.
 
+### (Optional) Setup DeepL Translate
+
+If you do not have DeepL API access, follow DeepL's guide to creating an account and obtaining API access [here](https://www.deepl.com/pro/change-plan?cta=apiDocsHeader#developer)
+
+Save your DeepL API key to a file in your project root called `deepl_key`.
+
 ### 2. Add auto_translator to your project
 
 Add auto_translator under dev_dependencies in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: ^2.2.0
+  auto_translator: ^2.3.0
 ```
 
 ### 3. Setup the config files
@@ -44,6 +50,8 @@ If you have not already created the `l10n.yaml` file, do so now.
 arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
+#Defaults to Google Translate.
+translate-tool: Google
 
 translator:
   targets:

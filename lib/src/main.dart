@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -8,6 +9,7 @@ import 'package:auto_translator/src/transformer.dart';
 import 'package:yaml/yaml.dart';
 
 import 'translator.dart';
+import 'translate_backend.dart';
 
 const _helpFlag = 'help';
 const _configOption = 'config-file';
@@ -15,6 +17,7 @@ const _configOption = 'config-file';
 const _defaultConfigFile = 'l10n.yaml';
 const _translatorKey = 'translator';
 const _defaultKeyFile = 'translator_key';
+const _deeplKeyFile = 'deepl_key';
 
 /// Parses arguments from command line, providing help or generating translations.
 Future<void> runWithArguments(List<String> arguments) async {
@@ -44,7 +47,6 @@ Future<void> runWithArguments(List<String> arguments) async {
 
       final Map<String, dynamic> config =
           _mapConfigEntries((yamlMap as Map).entries);
-
       try {
         await _translate(config);
       } on FileSystemException {
@@ -60,14 +62,30 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
   final Map<String, dynamic> config = <String, dynamic>{};
   for (final entry in entries) {
     if (entry.key == _translatorKey) {
-      config.addAll(_mapConfigEntries(YamlMap.wrap(entry.value).entries));
+      config.addAll(Map<String, dynamic>.from(YamlMap.wrap(entry.value)));
     } else if (entry.value is YamlList) {
       config[entry.key] = (entry.value as YamlList).toList();
     } else {
       config[entry.key] = entry.value;
     }
   }
-  config.putIfAbsent('key_file', () => _defaultKeyFile);
+  if (!config.containsKey('translate-tool')) {
+    print(
+        "No translate tool was specified in the yaml file, using Google Translate.");
+    config['translate-tool'] = "googleTranslate";
+  }
+  final TranslateBackend translateBackend;
+  try {
+    translateBackend = TranslateBackend.values
+        .firstWhere((e) => e.name == config['translate-tool']);
+  } catch (e) {
+    throw UnsopportedTool(
+        "Please specify a valid translating service in the yaml file.");
+  }
+  config['translateBackend'] = translateBackend;
+  config['key_file'] = translateBackend == TranslateBackend.googleTranslate
+      ? _defaultKeyFile
+      : _deeplKeyFile;
   return config;
 }
 
@@ -109,7 +127,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final templateMetadata = <String, Map<String, dynamic>>{};
 
   // examples to use instead of placeholder variables
-  final examples = <String, String>{};
+  final List<String> examples = [];
 
   // sort target order to account for preferred template languages
   for (final preferredTemplate in preferTemplateLang.entries) {
@@ -243,23 +261,25 @@ Future<void> _translate(Map<String, dynamic> config) async {
       );
     });
 
-    final results = await translator.translate(
-      toTranslate: toTranslate,
-      source: source,
-      target: target,
-    );
+    stdout.write(
+        'Translating from $source to $target using ${config['translateBackend']}\n');
 
+    final results = await translator.translate(
+        toTranslate: toTranslate,
+        source: source,
+        target: target,
+        translateBackend: config['translateBackend']);
+    int matchNum = 0;
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);
       final exampleMatches =
-          RegExp(r'___*.*__').allMatches(decodedString).toList().reversed;
+          RegExp(r'<x>.+?<x>').allMatches(decodedString).toList();
       for (final match in exampleMatches) {
-        final originalVariable =
-            examples[decodedString.substring(match.start, match.end)];
-        if (originalVariable != null) {
-          decodedString = decodedString.replaceRange(
-              match.start, match.end, originalVariable);
-        }
+        final originalVariable = examples[matchNum];
+        decodedString = decodedString
+            .replaceRange(match.start, match.end, originalVariable)
+            .replaceAll('<x>', '');
+        matchNum += 1;
       }
       return decodedString;
     });
@@ -338,7 +358,7 @@ Map<String, dynamic> _buildTemplate(
   Map<String, dynamic> arbTemplate, {
   required Transformer transformer,
   required Map<String, dynamic> arbMetadata,
-  required Map<String, String> examples,
+  required List<String> examples,
 }) {
   // remove strings that are marked ignore
   arbTemplate.removeWhere((key, value) =>
@@ -352,13 +372,16 @@ Map<String, dynamic> _buildTemplate(
           Map.from(arbMetadata['@${entry.key}']?['placeholders'] ?? {});
       placeholders.removeWhere((key, value) => value['example'] == null);
       for (final placeholder in placeholders.entries) {
-        var modifier = '_';
-        String key;
-        do {
-          modifier += '_';
-          key = '$modifier${placeholder.value['example']}__';
-        } while (examples.containsKey(key) && examples[key] != placeholder.key);
-        examples.putIfAbsent(key, () => '{${placeholder.key}}');
+        /* The prologue and epilogue are <x> since these tags avoid bugs.
+        For instance use of smybols like _'s can lead to the smybol vanishing
+        if the placeholder is moved to the beginning of the sentence.
+        Similarly '<' on it's own has potential issues of DeepL changing the
+        symbol into ⟨ ⟩. However it is possible to specify that <x>
+        (or some custom XML-like tags) should be left untouched.
+        */
+        // ignore: prefer_interpolation_to_compose_strings
+        String key = '<x>${placeholder.value['example']}<x>';
+        examples.add('{${placeholder.key}}');
         value = value.replaceAll('{${placeholder.key}}', key);
       }
       final encodedValue = transformer.encode(value);

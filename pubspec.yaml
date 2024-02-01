@@ -1,10 +1,10 @@
 name: auto_translator
 description: A command-line tool to translate ARB files using Google Cloud Translate.
-version: 2.2.0
+version: 2.3.0
 homepage: https://github.com/theLee3/flutter_auto_translator
 
 environment:
-  sdk: '>=2.12.0 <4.0.0'
+  sdk: '>=2.15.0 <4.0.0'
 
 dependencies:
   args: ^2.4.2

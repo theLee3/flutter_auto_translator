@@ -4,6 +4,7 @@ output-localization-file: app_localizations.dart
 
 translator:
   # key_file: translator_key
+  # service: Google
   targets:
     - es-ES
     - de
@@ -12,7 +13,15 @@ translator:
     - tr
     - uk
 
-  prefer-lang-templates: {
-    'fr': 'es-ES',
-    'uk': 'de'
-  }
+  prefer-lang-templates: 
+    fr: es-ES
+    de: es-ES
+    uk: de
+  
+  prefer-service:
+    deepL:
+      - tr
+      - uk
+    # Google:
+    #   - es-Es
+  

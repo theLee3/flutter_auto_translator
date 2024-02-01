@@ -43,6 +43,27 @@ class InvalidFormatException extends CustomException {
             'opening or closing curly brace in `$key`.');
 }
 
+/// {@template MissingTranslatorKeyException}
+/// Thrown when a key has not been provided for a specified translator.
+/// {@endtemplate}
+class MissingTranslatorKeyException extends CustomException {
+  /// {@MissingTranslatorKeyException}
+  const MissingTranslatorKeyException([message]) : super(message);
+}
+
+/// {@template MalformedTranslatorKeyFileException}
+/// Thrown when the key file is not formatted correctly.
+/// {@endtemplate}
+class MalformedTranslatorKeyFileException extends CustomException {
+  /// {@MalformedTranslatorKeyFileException}
+  const MalformedTranslatorKeyFileException()
+      : super(
+          'The key file must consists of a single string or a json map. See '
+          'https://pub.dev/packages/auto_translator#3-setup-the-config-files '
+          'for more details.',
+        );
+}
+
 /// {@template GoogleTranslateException}
 /// Thrown when an error occurs communicating with Google Cloud Translate.
 /// {@endtemplate}
@@ -59,12 +80,12 @@ class DeepLTranslateException extends CustomException {
   const DeepLTranslateException([message]) : super(message);
 }
 
-/// {@template UnsopportedTool}
-/// Thrown when an unsupported translating service is used in the l10n.yaml file.
+/// {@template UnsupportedTranslatorServiceException}
+/// Thrown when an unsupported translator service is specified in the l10n.yaml file.
 /// {@endtemplate}
-class UnsopportedTool extends CustomException {
-  /// {@macro UnsopportedTool}
-  const UnsopportedTool([message]) : super(message);
+class UnsupportedTranslatorServiceException extends CustomException {
+  /// {@macro UnsupportedTranslatorServiceException}
+  const UnsupportedTranslatorServiceException([message]) : super(message);
 }
 
 /// Generic help message linking to package usage guide.

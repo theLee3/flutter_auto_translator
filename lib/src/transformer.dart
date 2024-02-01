@@ -6,7 +6,7 @@ import 'exceptions.dart';
 class Transformer {
   final _openBracket = RegExp(r"(?<!'){");
   final _closeBracket = RegExp(r"(?<!')}");
-  final _commaAndAnyTrailingWhitespace = RegExp(r",\s*");
+  final _commaAndAnyTrailingWhitespace = RegExp(r',\s*');
 
   // expression used to for arb variables
   final _variableExp = RegExp(r'\[_\d*\]');

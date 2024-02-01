@@ -1,33 +1,55 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:async';
 
 import 'package:auto_translator/src/exceptions.dart';
-import 'translate_backend.dart';
 import 'package:http/http.dart' as http show Client;
 
+enum _TranslateBackend {
+  google('Google'),
+  deepL('deepL');
+
+  const _TranslateBackend(this.name);
+  final String name;
+}
+
 const _googleApiUrl = 'googleapis.com';
-const _translateSubdomain = 'translation';
-const _translatePath = '/language/translate/v2';
+const _googleSubdomain = 'translation';
+const _googlePath = '/language/translate/v2';
+
+const _deepLApiUrl = 'deepl.com';
+const _deepLSubdomain = 'api-free';
+const _deepLPath = '/v2/translate';
 
 /// {@template translator}
-/// Translates ARB template file via Google Cloud Translate.
+/// Translates ARB template file via configured cloud translation service.
 /// {@endtemplate}
 class Translator {
-  /// {@macro translator}
-  Translator(this._apiKey);
+  /// Translates ARB template file via Google Cloud Translate.
+  Translator.google(String apiKey)
+      : _apiKey = apiKey,
+        _translateBackend = _TranslateBackend.google;
+
+  /// Translates ARB template file via DeepL Tranlate.
+  Translator.deepL(String apiKey)
+      : _apiKey = apiKey,
+        _translateBackend = _TranslateBackend.deepL;
+
   final String _apiKey;
+  final _TranslateBackend _translateBackend;
+
+  /// Name of the service used by this translator.
+  String get name => _translateBackend.name;
 
   final _client = http.Client();
 
   /// Translate values in [toTranslate] from [source] language to [target] language.
-  Future<Map<String, String>> translate(
-      {required Map<String, dynamic> toTranslate,
-      required String source,
-      required String target,
-      required TranslateBackend translateBackend}) async {
+  Future<Map<String, String>> translate({
+    required Map<String, dynamic> toTranslate,
+    required String source,
+    required String target,
+  }) async {
     final translations = <String, String>{};
-
     // Google Translate requests are limited to 128 strings & 5k characters,
     // so iterate through in chunks if necessary
     var start = 0;
@@ -44,11 +66,11 @@ class Translator {
         final removedEntry = values.removeLast();
         charCount -= removedEntry.length;
       }
-      var result;
+      List<String>? result;
 
-      switch (translateBackend) {
-        case TranslateBackend.googleTranslate:
-          result = await _translate(
+      switch (_translateBackend) {
+        case _TranslateBackend.google:
+          result = await _googleTranslate(
             client: _client,
             content: values,
             source: source,
@@ -56,8 +78,8 @@ class Translator {
             apiKey: _apiKey,
           );
           break;
-        case TranslateBackend.deepl:
-          result = await _deeplTranslate(
+        case _TranslateBackend.deepL:
+          result = await _deepLTranslate(
             client: _client,
             content: values,
             source: source,
@@ -79,7 +101,7 @@ class Translator {
     return translations;
   }
 
-  Future<List<String>?> _translate({
+  Future<List<String>?> _googleTranslate({
     required http.Client client,
     required List<String> content,
     required String source,
@@ -87,7 +109,7 @@ class Translator {
     required String apiKey,
   }) async {
     final url = Uri.https(
-        '$_translateSubdomain.$_googleApiUrl', _translatePath, {'key': apiKey});
+        '$_googleSubdomain.$_googleApiUrl', _googlePath, {'key': apiKey});
     final response = await client.post(
       url,
       headers: {
@@ -115,14 +137,14 @@ class Translator {
         .cast<String>();
   }
 
-  Future<List<String>?> _deeplTranslate({
+  Future<List<String>?> _deepLTranslate({
     required http.Client client,
     required List<String> content,
     required String source,
     required String target,
     required String apiKey,
   }) async {
-    final url = Uri.https("api-free.deepl.com", "/v2/translate");
+    final url = Uri.https('$_deepLSubdomain.$_deepLApiUrl', _deepLPath);
 
     final response = await client.post(
       url,

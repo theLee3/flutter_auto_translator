@@ -19,6 +19,7 @@ linter:
   rules:
     - public_member_api_docs
 #     - camel_case_types
+    - prefer_single_quotes
 
 # analyzer:
 #   exclude:

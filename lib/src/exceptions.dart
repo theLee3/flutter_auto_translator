@@ -47,7 +47,7 @@ class InvalidFormatException extends CustomException {
 /// Thrown when a key has not been provided for a specified translator.
 /// {@endtemplate}
 class MissingTranslatorKeyException extends CustomException {
-  /// {@MissingTranslatorKeyException}
+  /// {@macro MissingTranslatorKeyException}
   const MissingTranslatorKeyException([message]) : super(message);
 }
 
@@ -55,7 +55,7 @@ class MissingTranslatorKeyException extends CustomException {
 /// Thrown when the key file is not formatted correctly.
 /// {@endtemplate}
 class MalformedTranslatorKeyFileException extends CustomException {
-  /// {@MalformedTranslatorKeyFileException}
+  /// {@macro MalformedTranslatorKeyFileException}
   const MalformedTranslatorKeyFileException()
       : super(
           'The key file must consists of a single string or a json map. See '

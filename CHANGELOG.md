@@ -1,3 +1,7 @@
+## 2.3.0+1
+
+- Documentation fixes.
+
 ## 2.3.0
 
 - Added support for DeepL Translation.

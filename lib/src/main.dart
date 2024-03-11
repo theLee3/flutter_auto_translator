@@ -166,7 +166,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
   translators[defaultTranslatorService] =
       getTranslator(defaultTranslatorService);
   for (final entry in preferTranslatorService.entries) {
-    translators.putIfAbsent(entry.key, () => getTranslator(entry.key));
+    translators.putIfAbsent(entry.value, () => getTranslator(entry.value));
   }
 
   // cached templates
@@ -363,7 +363,9 @@ Future<void> _translate(Map<String, dynamic> config) async {
         if (templateMetadata['comments']!.containsKey(key)) {
           output[templateMetadata['comments']![key]] = {};
         }
-        output[key] = currentArbContent[key];
+        if (currentArbContent.containsKey(key)) {
+          output[key] = currentArbContent[key];
+        }
       }
       // handle a comment at the end of the file
       if (templateMetadata['comments']!.containsKey('{}')) {

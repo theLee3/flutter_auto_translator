@@ -18,6 +18,12 @@
             }
         }
     },
+    "ignoredString": "Ignore this string!",
+    "@ignoredString": {
+        "translator": {
+            "ignore": true
+        }
+    },
     "@_OTHER_STUFF": {},
     "birthday":
             "{sex, select, male{His birthday} female{Her birthday} other{Their birthday}}",

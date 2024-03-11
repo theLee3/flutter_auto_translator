@@ -1,4 +1,4 @@
-## 2.3.0+2
+## 2.3.1
 
 Fixed bug that set value of ignored translations to `null`.
 

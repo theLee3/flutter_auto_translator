@@ -12,7 +12,6 @@ translator:
     - tr
     - uk
 
-  prefer-lang-templates: {
-    'fr': 'es-ES',
-    'uk': 'de'
-  }
+  prefer-lang-templates:
+    fr: es-ES
+    uk: de

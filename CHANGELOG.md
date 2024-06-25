@@ -1,3 +1,7 @@
+## 2.3.2
+
+Fixed bug that used wrong placeholder name if multiple the same example was used.
+
 ## 2.3.1
 
 Fixed bug that set value of ignored translations to `null`.

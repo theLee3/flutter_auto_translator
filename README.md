@@ -43,7 +43,7 @@ Add `auto_translator` under `dev_dependencies` in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: ^2.3.0
+  auto_translator: ^2.3.2
 ```
 
 ### 3. Setup the config files
@@ -62,7 +62,7 @@ translator:
   service: Google
 
   targets:
-    - es
+    - es-ES
     - fr
     - ja
 ```
@@ -140,7 +140,7 @@ Sometimes, you may wish to specify a language that translates more accurately to
 
 ```yaml
 translator:
-  # use es template for fr translation ja for ko
+  # use es-ES template for fr translation ja for ko
   # all other translations will use [template-arb-file]
   prefer-lang-templates:
     fr: es

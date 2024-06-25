@@ -175,7 +175,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final templateMetadata = <String, Map<String, dynamic>>{};
 
   // examples to use instead of placeholder variables
-  final List<String> examples = [];
+  final examples = <String, Map<String, String>>{};
 
   // sort target order to account for preferred template languages
   for (final preferredTemplate in preferTemplateLang.entries) {
@@ -241,7 +241,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
       // do not translate previously translated phrases unless marked [force]
       toTranslate.removeWhere((key, value) {
         if (key.startsWith('@')) {
-          key = key.substring(1, key.lastIndexOf(RegExp(r'_.*_')));
+          key = key.substring(1, key.lastIndexOf(RegExp(r'_.+?_')));
         }
         return previousTranslations.containsKey(key) &&
             !(templateMetadata[templatePath]!['@$key']?['translator']
@@ -317,17 +317,20 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
     final results = await translator.translate(
         toTranslate: toTranslate, source: source, target: target);
-    int matchNum = 0;
     results.updateAll((key, result) {
       var decodedString = transformer.decode(result);
       final exampleMatches =
-          RegExp(r'<x>.+?<x>').allMatches(decodedString).toList();
+          RegExp(r'<x>.+?<x>').allMatches(decodedString).toList().reversed;
       for (final match in exampleMatches) {
-        final originalVariable = examples[matchNum];
-        decodedString = decodedString
-            .replaceRange(match.start, match.end, originalVariable)
-            .replaceAll('<x>', '');
-        matchNum += 1;
+        final exampleMap =
+            examples[decodedString.substring(match.start, match.end)];
+
+        // check for entry specific variable, then fallback to default
+        final originalVariable = exampleMap?[key] ?? exampleMap?['_'];
+        if (originalVariable != null) {
+          decodedString = decodedString.replaceRange(
+              match.start, match.end, originalVariable);
+        }
       }
       return decodedString;
     });
@@ -408,7 +411,7 @@ Map<String, dynamic> _buildTemplate(
   Map<String, dynamic> arbTemplate, {
   required Transformer transformer,
   required Map<String, dynamic> arbMetadata,
-  required List<String> examples,
+  required Map<String, Map<String, String>> examples,
 }) {
   // remove strings that are marked ignore
   arbTemplate.removeWhere((key, value) =>
@@ -417,7 +420,7 @@ Map<String, dynamic> _buildTemplate(
   final entries = List<MapEntry<String, dynamic>>.from(arbTemplate.entries);
   for (final entry in entries) {
     try {
-      var value = entry.value as String;
+      var entryValue = entry.value as String;
       final Map<String, Map<String, dynamic>> placeholders =
           Map.from(arbMetadata['@${entry.key}']?['placeholders'] ?? {});
       placeholders.removeWhere((key, value) => value['example'] == null);
@@ -429,11 +432,23 @@ Map<String, dynamic> _buildTemplate(
         symbol into ⟨ ⟩. However it is possible to specify that <x>
         (or some custom XML-like tags) should be left untouched.
         */
-        String key = '<x>${placeholder.value['example']}<x>';
-        examples.add('{${placeholder.key}}');
-        value = value.replaceAll('{${placeholder.key}}', key);
+        final key = '<x>${placeholder.value['example']}<x>';
+        final value = '{${placeholder.key}}';
+
+        // create a default catch all if example hasn't been used to reduce space
+        // complexity when the same placeholder name is used with the same example
+        // throughout the ARB file
+        final exampleMap = examples[key] ?? {'_': value};
+        if (exampleMap['_'] != value) {
+          exampleMap[entry.key] = value;
+          examples[key] = exampleMap;
+        } else {
+          examples.putIfAbsent(key, () => exampleMap);
+        }
+
+        entryValue = entryValue.replaceAll('{${placeholder.key}}', key);
       }
-      final encodedValue = transformer.encode(value);
+      final encodedValue = transformer.encode(entryValue);
       if (encodedValue is String) {
         arbTemplate[entry.key] = encodedValue;
       } else {

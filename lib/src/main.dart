@@ -104,10 +104,9 @@ Future<void> _translate(Map<String, dynamic> config) async {
   }
 
   final defaultSource = templateFilename.substring(
-      templateFilename.indexOf(RegExp(r'[-_]')) + 1,
+      templateFilename.lastIndexOf(('_')) + 1,
       templateFilename.indexOf('.arb'));
-  final name =
-      templateFilename.substring(0, templateFilename.indexOf(RegExp(r'[-_]')));
+  final name = templateFilename.substring(0, templateFilename.lastIndexOf('_'));
 
   final encoder = JsonEncoder.withIndent('    ');
 

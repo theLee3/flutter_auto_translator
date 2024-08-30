@@ -88,6 +88,7 @@ class Translator {
           );
           break;
       }
+      print('here');
       if (result != null) {
         final keys = List.unmodifiable(sublist.map((e) => e.key));
         for (var i = 0; i < keys.length; i++) {
@@ -165,8 +166,8 @@ class Translator {
     if (response.body.isEmpty) return null;
 
     final json = jsonDecode(utf8.decode(response.bodyBytes));
-    if (json['error'] != null) {
-      throw DeepLTranslateException('\n${json['error']['message']}');
+    if (response.statusCode != 200) {
+      throw DeepLTranslateException('\n${json['message']}');
     }
 
     return json['translations']

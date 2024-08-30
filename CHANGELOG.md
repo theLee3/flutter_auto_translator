@@ -1,3 +1,8 @@
+## 2.3.3
+
+Improved error handling from DeepL Translation API.
+Added link to API docs in error messages from translation services.
+
 ## 2.3.2
 
 Fixed bug that used wrong placeholder name if multiple the same example was used.

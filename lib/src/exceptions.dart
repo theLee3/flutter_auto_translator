@@ -3,15 +3,18 @@
 /// {@endtemplate}
 abstract class CustomException implements Exception {
   /// {@macro CustomException}
-  const CustomException([this.message]);
+  const CustomException([this._message]);
 
   /// Message representing the error.
-  final String? message;
+  final String? _message;
+
+  /// Generic help message linking to package usage guide.
+  String get _helpMessage => ' $helpMessage';
 
   @override
   String toString() {
-    final errorOutput = message == null ? '' : ' \n$message';
-    return 'ERROR: $runtimeType$errorOutput $helpMessage';
+    final errorOutput = _message == null ? '' : '$_message';
+    return '\nERROR: $runtimeType$errorOutput$_helpMessage';
   }
 }
 
@@ -58,10 +61,13 @@ class MalformedTranslatorKeyFileException extends CustomException {
   /// {@macro MalformedTranslatorKeyFileException}
   const MalformedTranslatorKeyFileException()
       : super(
-          'The key file must consists of a single string or a json map. See '
-          'https://pub.dev/packages/auto_translator#3-setup-the-config-files '
-          'for more details.',
+          'The key file must consists of a single string or a json map.',
         );
+
+  @override
+  String get _helpMessage =>
+      ' See https://pub.dev/packages/auto_translator#3-setup-the-config-files '
+      'for more details.';
 }
 
 /// {@template GoogleTranslateException}
@@ -70,6 +76,10 @@ class MalformedTranslatorKeyFileException extends CustomException {
 class GoogleTranslateException extends CustomException {
   /// {@macro GoogleTranslateException}
   const GoogleTranslateException([message]) : super(message);
+
+  @override
+  String get _helpMessage => ' See API spec at '
+      'https://cloud.google.com/translate/docs/reference/rest/v2/translate.';
 }
 
 /// {@template DeepLTranslateException}
@@ -78,6 +88,10 @@ class GoogleTranslateException extends CustomException {
 class DeepLTranslateException extends CustomException {
   /// {@macro DeepLTranslateException}
   const DeepLTranslateException([message]) : super(message);
+
+  @override
+  String get _helpMessage => ' See API spec at '
+      'https://developers.deepl.com/docs/api-reference/translate/openapi-spec-for-text-translation.';
 }
 
 /// {@template UnsupportedTranslatorServiceException}
@@ -89,5 +103,5 @@ class UnsupportedTranslatorServiceException extends CustomException {
 }
 
 /// Generic help message linking to package usage guide.
-String get helpMessage =>
+const helpMessage =
     'Please visit https://pub.dev/packages/auto_translator for usage guide.';

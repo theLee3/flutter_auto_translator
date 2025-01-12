@@ -1,3 +1,7 @@
+## 2.3.4
+
+Fixed a bug that would add translation results to incorrect ARB string if they shared a prefix.
+
 ## 2.3.3
 
 Improved error handling from DeepL Translation API.

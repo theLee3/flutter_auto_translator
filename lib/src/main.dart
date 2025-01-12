@@ -275,7 +275,9 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
     if (toTranslate.isEmpty) {
       if (templateMetadata[templatePath]!.containsKey('@@locale') &&
-          !currentArbContent.containsKey('@@locale')) changesMade++;
+          !currentArbContent.containsKey('@@locale')) {
+        changesMade++;
+      }
       if (changesMade == 0) {
         skippedLanguages++;
         stdout.writeln('No changes to ${name}_$target.arb');
@@ -348,7 +350,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
       for (final key in originalKeys) {
         final complexParts =
-            complexEntries.where((entry) => entry.key.startsWith('@$key'));
+            complexEntries.where((entry) => entry.key.startsWith('@${key}_'));
         translations[key] = transformer.decode(Map.fromEntries(complexParts));
       }
 
@@ -425,7 +427,7 @@ Map<String, dynamic> _buildTemplate(
       placeholders.removeWhere((key, value) => value['example'] == null);
       for (final placeholder in placeholders.entries) {
         /* The prologue and epilogue are <x> since these tags avoid bugs.
-        For instance use of smybols like _'s can lead to the smybol vanishing
+        For instance use of symbols like _'s can lead to the symbol vanishing
         if the placeholder is moved to the beginning of the sentence.
         Similarly '<' on it's own has potential issues of DeepL changing the
         symbol into ⟨ ⟩. However it is possible to specify that <x>

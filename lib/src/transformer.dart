@@ -8,7 +8,7 @@ class Transformer {
   final _closeBracket = RegExp(r"(?<!')}");
   final _commaAndAnyTrailingWhitespace = RegExp(r',\s*');
 
-  // expression used to for arb variables
+  // expression used for arb variables
   final _variableExp = RegExp(r'\[_\d*\]');
 
   // map for storing arb variables

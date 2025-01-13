@@ -240,7 +240,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
       // do not translate previously translated phrases unless marked [force]
       toTranslate.removeWhere((key, value) {
         if (key.startsWith('@')) {
-          key = key.substring(1, key.lastIndexOf(RegExp(r'_.+?_')));
+          key = key.substring(1, key.lastIndexOf(RegExp(r'#.+?#')));
         }
         return previousTranslations.containsKey(key) &&
             !(templateMetadata[templatePath]!['@$key']?['translator']
@@ -345,12 +345,12 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
       final originalKeys = <String>{};
       for (final entry in complexEntries) {
-        originalKeys.add(entry.key.substring(1).split('_').first);
+        originalKeys.add(entry.key.substring(1).split('#').first);
       }
 
       for (final key in originalKeys) {
         final complexParts =
-            complexEntries.where((entry) => entry.key.startsWith('@${key}_'));
+            complexEntries.where((entry) => entry.key.startsWith('@$key#'));
         translations[key] = transformer.decode(Map.fromEntries(complexParts));
       }
 
@@ -455,7 +455,7 @@ Map<String, dynamic> _buildTemplate(
       } else {
         arbTemplate.remove(entry.key);
         for (final encodedEntry in (encodedValue as Map).entries) {
-          arbTemplate['@${entry.key}_${encodedEntry.key}'] = encodedEntry.value;
+          arbTemplate['@${entry.key}#${encodedEntry.key}'] = encodedEntry.value;
         }
       }
     } on InvalidFormatException {

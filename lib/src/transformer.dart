@@ -41,13 +41,13 @@ class Transformer {
 
   String _decodeComplexString(Map<String, String> strings) {
     final entries = strings.entries;
-    final keyParts = entries.first.key.split('_');
+    final keyParts = entries.first.key.split('#');
     final prefixMarker = keyParts[keyParts.length - 2];
     final prefix = _prefixMap.entries
         .firstWhere((entry) => entry.value == prefixMarker)
         .key;
     final pieces = entries
-        .map((entry) => '${entry.key.split('_').last}{${entry.value}}')
+        .map((entry) => '${entry.key.split('#').last}{${entry.value}}')
         .reduce((value, element) => '$value $element');
     return '{$prefix, $pieces}';
   }
@@ -108,7 +108,7 @@ class Transformer {
           }
           closeIndex = string.indexOf(_closeBracket, closeIndex + 1);
         }
-        strings['${prefixMarker}_$subKey'] =
+        strings['$prefixMarker#$subKey'] =
             _encodeString(string.substring(openIndex + 1, closeIndex));
         string = string.substring(closeIndex + 1).trim();
       } while (string.contains(_openBracket));

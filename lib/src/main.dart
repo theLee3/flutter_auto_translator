@@ -318,23 +318,46 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
     final results = await translator.translate(
         toTranslate: toTranslate, source: source, target: target);
-    results.updateAll((key, result) {
-      var decodedString = transformer.decode(result);
+    for (var result in results.entries) {
+      // results.updateAll((key, result) {
+      var decodedString = transformer.decode(result.value);
       final exampleMatches =
           RegExp(r'<x>.+?<x>').allMatches(decodedString).toList().reversed;
       for (final match in exampleMatches) {
-        final exampleMap =
-            examples[decodedString.substring(match.start, match.end)];
+        final example = decodedString.substring(match.start, match.end);
+        final exampleMap = examples[example] ?? {};
 
         // check for entry specific variable, then fallback to default
-        final originalVariable = exampleMap?[key] ?? exampleMap?['_'];
+        final originalVariable = exampleMap[result.key] ?? exampleMap['_'];
         if (originalVariable != null) {
           decodedString = decodedString.replaceRange(
               match.start, match.end, originalVariable);
+        } else {
+          // handle edge cases where example is translated by the API
+          final correction = await translator.translate(
+            toTranslate: {'_': example.replaceAll('<x>', '')},
+            source: target,
+            target: source,
+          );
+          final key = '<x>${correction['_']?.toLowerCase()}<x>';
+          exampleMap.addAll(examples.entries
+              .firstWhere(
+                  (entry) => entry.key.toLowerCase() == key.toLowerCase(),
+                  orElse: () => MapEntry('_', {'_': key}))
+              .value);
+          final originalVariable = exampleMap[result.key] ?? exampleMap['_'];
+          if (originalVariable != null) {
+            decodedString = decodedString.replaceRange(
+              match.start,
+              match.end,
+              originalVariable,
+            );
+          }
         }
       }
-      return decodedString;
-    });
+      results[result.key] = decodedString;
+    }
+    // );
     translations.addAll(results);
 
     if (translations.isNotEmpty) {

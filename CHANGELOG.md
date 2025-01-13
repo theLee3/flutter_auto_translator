@@ -1,3 +1,8 @@
+## 2.3.5
+
+Improve compatibility with ARB variable names that contain underscores.
+Handle edge cases where translated placeholder example may be returned by API.
+
 ## 2.3.4
 
 Fixed a bug that would add translation results to incorrect ARB string if they shared a prefix.

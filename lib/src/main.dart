@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:auto_translator/src/exceptions.dart';
+import 'package:auto_translator/src/spinner.dart';
 import 'package:auto_translator/src/transformer.dart';
 import 'package:yaml/yaml.dart';
 
@@ -11,32 +12,50 @@ import 'translator.dart';
 
 const _helpFlag = 'help';
 const _configOption = 'config-file';
+const _verboseFlag = 'verbose';
 
 const _defaultConfigFile = 'l10n.yaml';
 const _translatorKey = 'translator';
 const _defaultKeyFile = 'translator_keys';
+
+var _verboseOutput = false;
 
 /// Parses arguments from command line, providing help or generating translations.
 Future<void> runWithArguments(List<String> arguments) async {
   final parser = ArgParser();
   parser
     ..addFlag(_helpFlag, abbr: 'h', help: 'Usage help', negatable: false)
+    ..addFlag(
+      _verboseFlag,
+      abbr: 'v',
+      help: 'Enable verbose output for debugging',
+      negatable: false,
+    )
     ..addOption(
       _configOption,
       abbr: 'f',
       help: 'Path to config file',
       defaultsTo: _defaultConfigFile,
     );
+
+  if (_verboseOutput) stdout.writeln('Parsing arguments');
+
   final argResults = parser.parse(arguments);
 
   if (argResults[_helpFlag]) {
     stdout.writeln(helpMessage);
   } else {
+    if (_verboseOutput) stdout.writeln('Determining config file');
     final configFileName = argResults[_configOption] ?? _defaultConfigFile;
+    if (_verboseOutput) stdout.writeln('Using config file: configFileName');
     final configFile = File(configFileName);
 
     if (!configFile.existsSync()) {
       throw ConfigNotFoundException('`$configFile` not found.');
+    }
+
+    if (_verboseOutput) {
+      stdout.writeln('Reading configuration from $configFileName');
     }
     final yamlString = configFile.readAsStringSync();
     final yamlMap = loadYaml(yamlString);
@@ -45,6 +64,8 @@ Future<void> runWithArguments(List<String> arguments) async {
       throw ConfigNotFoundException(
           '`$configFile` is missing `translator` section or it is configured incorrectly.');
     }
+
+    _verboseOutput = argResults[_verboseFlag];
 
     final Map<String, dynamic> config =
         _mapConfigEntries((yamlMap as Map).entries);
@@ -64,7 +85,7 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
     }
   }
   if (!config.containsKey('service')) {
-    print(
+    stdout.writeln(
       'No translator service was specified in the yaml file, using Google Cloud Translate.',
     );
     config['service'] = 'Google';
@@ -74,10 +95,11 @@ Map<String, dynamic> _mapConfigEntries(Iterable<MapEntry> entries) {
 }
 
 Future<void> _translate(Map<String, dynamic> config) async {
+  if (_verboseOutput) stdout.writeln('Reading target list');
   final targets = List<String>.from(config['targets'] as List? ?? []);
   if (targets.isEmpty) {
     throw NoTargetsProvidedException(
-        'No targets were provided. There\'s nothing for me to do.');
+        'No targets were provided. There\'s nothing to do.');
   }
 
   final arbDir = config['arb-dir'] as String? ?? 'lib/l10n';
@@ -110,6 +132,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
   final encoder = JsonEncoder.withIndent('    ');
 
+  if (_verboseOutput) stdout.writeln('Looking for key file');
   if (!File(config['key_file']).existsSync()) {
     // fallback to translator_key file for backwards compatibility
     if (config['key_file'] == _defaultKeyFile &&
@@ -122,6 +145,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
     }
   }
 
+  if (_verboseOutput) stdout.writeln('Reading API key(s)');
   final keyFileData = File(config['key_file']).readAsStringSync();
   final apiKeys = <String, String>{};
   // handle simple api key string file for backwards compatibility
@@ -137,6 +161,8 @@ Future<void> _translate(Map<String, dynamic> config) async {
       throw MalformedTranslatorKeyFileException();
     }
   }
+
+  if (_verboseOutput) stdout.writeln('Creating Transformer');
   final transformer = Transformer();
 
   getTranslator(String name) {
@@ -162,6 +188,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final defaultTranslatorService = config['service'].toString().toLowerCase();
   final translators = <String, Translator>{};
 
+  if (_verboseOutput) stdout.writeln('Creating Translator(s)');
   translators[defaultTranslatorService] =
       getTranslator(defaultTranslatorService);
   for (final entry in preferTranslatorService.entries) {
@@ -203,6 +230,9 @@ Future<void> _translate(Map<String, dynamic> config) async {
         defaultTranslatorService);
     final templatePath = '$arbDir/${name}_$source.arb';
     if (!modifiedTemplates.containsKey(templatePath)) {
+      if (_verboseOutput) {
+        stdout.writeln('Reading template file: ${name}_$source.arb');
+      }
       final templateFile = File(templatePath);
       final template =
           jsonDecode(templateFile.readAsStringSync()) as Map<String, dynamic>;
@@ -226,17 +256,33 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
     final currentArbContent = <String, dynamic>{};
     final translations = <String, String>{};
+
+    if (_verboseOutput) {
+      stdout.writeln('Building list of strings to translate to $target');
+    }
     final toTranslate =
         Map<String, dynamic>.from(modifiedTemplates[templatePath]!);
     final previousTranslations = <String, String>{};
     final arbFile = File('$arbDir/${name}_$target.arb');
-    var previousTranslationsCount = 0;
+    // var previousTranslationsCount = 0;
     if (arbFile.existsSync()) {
+      if (_verboseOutput) {
+        stdout.writeln('Handling existing translations and comments.');
+      }
       // cast {} to string to handle arb comments
       currentArbContent.addAll(jsonDecode(arbFile.readAsStringSync()));
-      previousTranslations.addAll((Map.from(currentArbContent)
-            ..removeWhere((key, value) => key.startsWith('@')))
-          .cast());
+
+      final prevTranslationMap = Map.from(currentArbContent)
+        ..removeWhere((key, value) => key.startsWith('@'));
+      if (_verboseOutput) {
+        for (var entry in prevTranslationMap.entries) {
+          assert(entry.key is String,
+              'Malformed ARB entry: key `${entry.key}` is not a String');
+          assert(entry.value is String,
+              'Malformed ARB entry: value of key `${entry.key}` is not a String');
+        }
+      }
+      previousTranslations.addAll(prevTranslationMap.cast());
       // do not translate previously translated phrases unless marked [force]
       toTranslate.removeWhere((key, value) {
         if (key.startsWith('@')) {
@@ -247,9 +293,13 @@ Future<void> _translate(Map<String, dynamic> config) async {
                     ?['force'] ??
                 false);
       });
-      previousTranslationsCount = (Map.from(previousTranslations)
-            ..removeWhere((key, value) => key.startsWith('@')))
-          .length;
+      // previousTranslationsCount = (Map.from(previousTranslations)
+      //       ..removeWhere((key, value) => key.startsWith('@')))
+      //     .length;
+      if (_verboseOutput && previousTranslations.isNotEmpty) {
+        stdout.writeln(
+            'Keeping ${previousTranslations.length} existing translations in ${name}_$target.arb');
+      }
       translations.addAll(previousTranslations);
     }
 
@@ -261,11 +311,14 @@ Future<void> _translate(Map<String, dynamic> config) async {
           !templateMetadata[templatePath]!.containsKey(key) &&
           !templateMetadata['comments']!.values.contains(key)) {
         currentArbContent.remove(key);
+        // TODO: what purpose is this serving? previousTranslations not used after this...
+        // TODO: why increasing changesMade??
         if (!key.startsWith('@')) previousTranslations.remove(key);
         changesMade++;
       }
     }
 
+    // add ARB comments
     for (final comment in templateMetadata['comments']!.entries) {
       if (!currentArbContent.containsKey(comment.value)) {
         currentArbContent[comment.value] = {};
@@ -299,7 +352,20 @@ Future<void> _translate(Map<String, dynamic> config) async {
         if (templateMetadata['comments']!.containsKey('{}')) {
           output[templateMetadata['comments']!['{}']] = {};
         }
+
         arbFile.writeAsStringSync(encoder.convert(output));
+        // var stringOutput = encoder.convert(output);
+        // final commentExpr = RegExp(r'"@_.*": {}');
+        // final matches = commentExpr.allMatches(stringOutput).toList().reversed;
+        // for (var match in matches) {
+        //   stringOutput = stringOutput.replaceRange(
+        //     match.start,
+        //     match.end,
+        //     '\n  ${stringOutput.substring(match.start, match.end)}',
+        //   );
+        // }
+        // arbFile.writeAsStringSync(stringOutput);
+
         stdout.writeln(
           'Nothing to translate to $target. $changesMade other '
           '${changesMade == 1 ? 'change' : 'changes'} made.',
@@ -310,14 +376,20 @@ Future<void> _translate(Map<String, dynamic> config) async {
 
     final translator = translators[translatorService]!;
 
-    final timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      stdout.write(
-        'Translating from $source to $target using ${translator.name} ${_Spinner(timer.tick)}\r',
-      );
-    });
+    final timer = _verboseOutput
+        ? null
+        : Timer.periodic(const Duration(milliseconds: 100), (timer) {
+            stdout.write(
+              'Translating from $source to $target using ${translator.name} ${Spinner(timer.tick)}\r',
+            );
+          });
 
     final results = await translator.translate(
-        toTranslate: toTranslate, source: source, target: target);
+      toTranslate: toTranslate,
+      source: source,
+      target: target,
+      verbose: _verboseOutput,
+    );
     for (var result in results.entries) {
       // results.updateAll((key, result) {
       var decodedString = transformer.decode(result.value);
@@ -357,7 +429,7 @@ Future<void> _translate(Map<String, dynamic> config) async {
       }
       results[result.key] = decodedString;
     }
-    // );
+
     translations.addAll(results);
 
     if (translations.isNotEmpty) {
@@ -399,10 +471,24 @@ Future<void> _translate(Map<String, dynamic> config) async {
         output[templateMetadata['comments']!['{}']] = {};
       }
       arbFile.writeAsStringSync(encoder.convert(output));
+      // var stringOutput = encoder.convert(output);
+      // final commentExpr = RegExp(r'"@_.*": {}');
+      // final matches = commentExpr.allMatches(stringOutput).toList().reversed;
+      // for (var match in matches) {
+      //   stringOutput = stringOutput.replaceRange(
+      //     match.start,
+      //     match.end,
+      //     '\n  ${stringOutput.substring(match.start, match.end)}',
+      //   );
+      // }
+      // arbFile.writeAsStringSync(stringOutput);
     }
 
-    timer.cancel();
-    final translationsCount = translations.length - previousTranslationsCount;
+    timer?.cancel();
+    // TODO: fix the issue with showing correct translation counts
+    // TODO: force & ignores may be the only outlier issues
+    final translationsCount =
+        toTranslate.length; // translations.length - previousTranslationsCount;
     stdout.writeln('Translated $translationsCount '
         'entr${translationsCount == 1 ? 'y' : 'ies'} from $source to $target using ${translator.name}.');
   }
@@ -487,14 +573,4 @@ Map<String, dynamic> _buildTemplate(
   }
 
   return arbTemplate;
-}
-
-class _Spinner {
-  const _Spinner(int ticks) : _index = ticks % 10;
-
-  final int _index;
-  final _segments = const ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-
-  @override
-  String toString() => _segments[_index];
 }

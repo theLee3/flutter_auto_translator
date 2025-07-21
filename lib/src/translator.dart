@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:auto_translator/src/exceptions.dart';
+import 'package:auto_translator/src/spinner.dart';
 import 'package:http/http.dart' as http show Client;
 
 enum _TranslateBackend {
@@ -25,7 +27,7 @@ const _deepLPath = '/v2/translate';
 /// Translates ARB template file via configured cloud translation service.
 /// {@endtemplate}
 class Translator {
-  /// Translates ARB template file via Google Cloud Translate.
+  /// Translates ARB template file via configured cloud translation service.
   Translator.google(String apiKey)
       : _apiKey = apiKey,
         _translateBackend = _TranslateBackend.google;
@@ -48,6 +50,7 @@ class Translator {
     required Map<String, dynamic> toTranslate,
     required String source,
     required String target,
+    bool verbose = false,
   }) async {
     final translations = <String, String>{};
     // Google Translate requests are limited to 128 strings & 5k characters,
@@ -66,8 +69,8 @@ class Translator {
         final removedEntry = values.removeLast();
         charCount -= removedEntry.length;
       }
-      List<String>? result;
 
+      List<String>? result;
       switch (_translateBackend) {
         case _TranslateBackend.google:
           result = await _googleTranslate(
@@ -76,6 +79,7 @@ class Translator {
             source: source,
             target: target,
             apiKey: _apiKey,
+            verbose: verbose,
           );
           break;
         case _TranslateBackend.deepL:
@@ -85,6 +89,7 @@ class Translator {
             source: source,
             target: target,
             apiKey: _apiKey,
+            verbose: verbose,
           );
           break;
       }
@@ -108,26 +113,66 @@ class Translator {
     required String source,
     required String target,
     required String apiKey,
+    bool verbose = false,
   }) async {
     final url = Uri.https(
         '$_googleSubdomain.$_googleApiUrl', _googlePath, {'key': apiKey});
-    final response = await client.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'q': content,
-        'source': source,
-        'target': target,
-        'format': 'text',
-      }),
-    );
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    final body = {
+      'q': content,
+      'source': source,
+      'target': target,
+      'format': 'text',
+    };
 
-    if (response.body.isEmpty) return null;
+    Timer? timer;
+    final encoder = JsonEncoder.withIndent('  ');
+
+    if (verbose) {
+      final payload = {
+        'endpoint': url.toString(),
+        'headers': headers,
+        'body': body,
+      };
+      stdout.writeln('Request sent to Google Cloud Translate');
+      stdout.writeln('--------------------------------------');
+      stdout.writeln(encoder.convert(payload));
+      timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        stdout.write('Awaiting response ${Spinner(timer.tick)}\r');
+      });
+    }
+
+    final response =
+        await client.post(url, headers: headers, body: jsonEncode(body));
+
+    timer?.cancel();
+
+    final responsePayload = {
+      'statusCode': response.statusCode,
+      'headers': response.headers,
+      'body': '',
+    };
+
+    if (verbose) {
+      stdout.writeln('Response received from Google Cloud Translate');
+      stdout.writeln('---------------------------------------------');
+    }
+
+    if (response.body.isEmpty) {
+      if (verbose) stdout.writeln(encoder.convert(responsePayload));
+      return null;
+    }
 
     final json = jsonDecode(response.body);
+
+    if (verbose) {
+      responsePayload['body'] = json;
+      stdout.writeln(encoder.convert(responsePayload));
+    }
+
     if (json['error'] != null) {
       throw GoogleTranslateException('\n${json['error']['message']}');
     }
@@ -144,28 +189,70 @@ class Translator {
     required String source,
     required String target,
     required String apiKey,
+    bool verbose = false,
   }) async {
     final url = Uri.https('$_deepLSubdomain.$_deepLApiUrl', _deepLPath);
+    final headers = {
+      'Authorization': 'DeepL-Auth-Key $apiKey',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    final body = {
+      'text': content,
+      'target_lang': target,
+      'source_lang': source,
+      'tag_handling': 'xml',
+      'ignore_tags': ['x'],
+    };
+
+    Timer? timer;
+    final encoder = JsonEncoder.withIndent('  ');
+
+    if (verbose) {
+      final payload = {
+        'endpoint': url.toString(),
+        'headers': headers,
+        'body': body,
+      };
+      stdout.writeln('Request sent to DeepL translator');
+      stdout.writeln('--------------------------------');
+      stdout.writeln(encoder.convert(payload));
+      timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        stdout.write('Awaiting response ${Spinner(timer.tick)}\r');
+      });
+    }
 
     final response = await client.post(
       url,
-      headers: {
-        'Authorization': 'DeepL-Auth-Key $apiKey',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'text': content,
-        'target_lang': target,
-        'source_lang': source,
-        'tag_handling': 'xml',
-        'ignore_tags': ['x']
-      }),
+      headers: headers,
+      body: jsonEncode(body),
     );
 
-    if (response.body.isEmpty) return null;
+    timer?.cancel();
 
-    final json = jsonDecode(utf8.decode(response.bodyBytes));
+    final responsePayload = {
+      'statusCode': response.statusCode,
+      'headers': response.headers,
+      'body': '',
+    };
+
+    if (verbose) {
+      stdout.writeln('Response received from DeepL translator');
+      stdout.writeln('---------------------------------------');
+    }
+
+    if (response.body.isEmpty) {
+      if (verbose) stdout.writeln(encoder.convert(responsePayload));
+      return null;
+    }
+
+    final json = jsonDecode(response.body);
+
+    if (verbose) {
+      responsePayload['body'] = json;
+      stdout.writeln(encoder.convert(responsePayload));
+    }
+
     if (response.statusCode != 200) {
       throw DeepLTranslateException('\n${json['message']}');
     }

@@ -18,7 +18,7 @@ const _googleSubdomain = 'translation';
 const _googlePath = '/language/translate/v2';
 
 const _deepLApiUrl = 'deepl.com';
-const _deepLSubdomain = 'api-free';
+const _deepLSubdomain = 'api'; //ToDo
 const _deepLPath = '/v2/translate';
 
 /// {@template translator}

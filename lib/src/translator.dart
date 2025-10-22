@@ -35,6 +35,11 @@ class Translator {
       : _apiKey = apiKey,
         _translateBackend = _TranslateBackend.deepL;
 
+  /// Translates ARB template file via DeepL Free Tranlate.
+  Translator.deepLFree(String apiKey)
+      : _apiKey = apiKey,
+        _translateBackend = _TranslateBackend.deepLFree;
+
   final String _apiKey;
   final _TranslateBackend _translateBackend;
 

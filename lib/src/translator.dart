@@ -6,20 +6,20 @@ import 'package:auto_translator/src/exceptions.dart';
 import 'package:http/http.dart' as http show Client;
 
 enum _TranslateBackend {
-  google('Google'),
-  deepL('deepL');
+  google('Google', 'translation', 'googleapis.com', '/language/translate/v2'),
+  deepL('deepL', 'api', 'deepl.com', '/v2/translate'),
+  deepLFree('deepLFree', 'api-free', 'deepl.com', '/v2/translate');
 
-  const _TranslateBackend(this.name);
+  const _TranslateBackend(this.name, this.subdomain, this.url, this.path);
+
   final String name;
+  final String url;
+  final String subdomain;
+  final String path;
+
+  Uri getUri([String? apiKey]) => Uri.https(
+      '$subdomain.$url', path, apiKey != null ? {'key': apiKey} : null);
 }
-
-const _googleApiUrl = 'googleapis.com';
-const _googleSubdomain = 'translation';
-const _googlePath = '/language/translate/v2';
-
-const _deepLApiUrl = 'deepl.com';
-const _deepLSubdomain = 'api-free';
-const _deepLPath = '/v2/translate';
 
 /// {@template translator}
 /// Translates ARB template file via configured cloud translation service.
@@ -34,6 +34,11 @@ class Translator {
   Translator.deepL(String apiKey)
       : _apiKey = apiKey,
         _translateBackend = _TranslateBackend.deepL;
+
+  /// Translates ARB template file via DeepL Free Tranlate.
+  Translator.deepLFree(String apiKey)
+      : _apiKey = apiKey,
+        _translateBackend = _TranslateBackend.deepLFree;
 
   final String _apiKey;
   final _TranslateBackend _translateBackend;
@@ -71,6 +76,7 @@ class Translator {
       switch (_translateBackend) {
         case _TranslateBackend.google:
           result = await _googleTranslate(
+            url: _translateBackend.getUri(_apiKey),
             client: _client,
             content: values,
             source: source,
@@ -79,7 +85,9 @@ class Translator {
           );
           break;
         case _TranslateBackend.deepL:
+        case _TranslateBackend.deepLFree:
           result = await _deepLTranslate(
+            url: _translateBackend.getUri(),
             client: _client,
             content: values,
             source: source,
@@ -103,14 +111,13 @@ class Translator {
   }
 
   Future<List<String>?> _googleTranslate({
+    required Uri url,
     required http.Client client,
     required List<String> content,
     required String source,
     required String target,
     required String apiKey,
   }) async {
-    final url = Uri.https(
-        '$_googleSubdomain.$_googleApiUrl', _googlePath, {'key': apiKey});
     final response = await client.post(
       url,
       headers: {
@@ -139,14 +146,13 @@ class Translator {
   }
 
   Future<List<String>?> _deepLTranslate({
+    required Uri url,
     required http.Client client,
     required List<String> content,
     required String source,
     required String target,
     required String apiKey,
   }) async {
-    final url = Uri.https('$_deepLSubdomain.$_deepLApiUrl', _deepLPath);
-
     final response = await client.post(
       url,
       headers: {

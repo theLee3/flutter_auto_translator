@@ -10,3 +10,5 @@ build/
 pubspec.lock
 
 .DS_Store
+/.idea/
+example/lib/l10n/*.dart

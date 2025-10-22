@@ -9,12 +9,12 @@ class Transformer {
   final _commaAndAnyTrailingWhitespace = RegExp(r',\s*');
 
   // expression used for arb variables
-  final _variableExp = RegExp(r'\[_\d*\]');
+  final _variableExp = RegExp(r'\[_\d+\]');
 
   // map for storing arb variables
   final _variableMap = <String, String>{};
 
-  // map for storing complex arb prefixes (i.e index, select)
+  // map for storing complex arb prefixes (i.e. index, select)
   final _prefixMap = <String, String>{};
 
   /// Encode the input string into the format to be used by [Translator].
@@ -27,11 +27,10 @@ class Transformer {
 
   String _decodeSimpleString(String string) {
     // reverse variable list so locations in string are not affected
-    // during manipulation
     final variables = _variableExp.allMatches(string).toList().reversed;
     for (final variable in variables) {
-      final replacement =
-          _variableMap[string.substring(variable.start, variable.end)];
+      final key = string.substring(variable.start, variable.end);
+      final replacement = _variableMap[key];
       if (replacement != null) {
         string = string.replaceRange(variable.start, variable.end, replacement);
       }
@@ -46,9 +45,12 @@ class Transformer {
     final prefix = _prefixMap.entries
         .firstWhere((entry) => entry.value == prefixMarker)
         .key;
-    final pieces = entries
-        .map((entry) => '${entry.key.split('#').last}{${entry.value}}')
-        .reduce((value, element) => '$value $element');
+
+    final pieces = entries.map((entry) {
+      final value = _decodeSimpleString(entry.value);
+      return '${entry.key.split('#').last}{$value}';
+    }).reduce((value, element) => '$value $element');
+
     return '{$prefix, $pieces}';
   }
 
@@ -64,6 +66,7 @@ class Transformer {
     try {
       final firstMatch = string.substring(
           string.indexOf(_openBracket), string.indexOf(_closeBracket) + 1);
+
       if (firstMatch.substring(1).contains(_openBracket)) {
         return _encodeComplexString(string.substring(1, string.length - 1));
       }
@@ -84,12 +87,14 @@ class Transformer {
   Map<String, String> _encodeComplexString(String string) {
     final endOfPrefix = string.indexOf(_commaAndAnyTrailingWhitespace,
         string.indexOf(_commaAndAnyTrailingWhitespace) + 1);
+
     final strings = <String, String>{};
     if (endOfPrefix > 0) {
       final prefix = string.substring(0, endOfPrefix);
       final prefixMarker =
-          _prefixMap.putIfAbsent(prefix, () => '${_prefixMap.length}');
+          _prefixMap.putIfAbsent(prefix, () => '${_prefixMap.length + 1}');
       string = string.substring(endOfPrefix + 1).trim();
+
       do {
         var openIndex = string.indexOf(_openBracket);
         var closeIndex = string.indexOf(_closeBracket);
@@ -98,9 +103,9 @@ class Transformer {
         openIndex = 0;
         closeIndex -= subKey.length;
         var currentStart = openIndex + 1;
+
         while (
             string.substring(currentStart, closeIndex).contains(_openBracket)) {
-          // arb strings that start with a variable must be treated differently
           if (string[currentStart] == '{') {
             currentStart++;
           } else {
@@ -108,8 +113,10 @@ class Transformer {
           }
           closeIndex = string.indexOf(_closeBracket, closeIndex + 1);
         }
+
         strings['$prefixMarker#$subKey'] =
             _encodeString(string.substring(openIndex + 1, closeIndex));
+
         string = string.substring(closeIndex + 1).trim();
       } while (string.contains(_openBracket));
     } else {
@@ -119,12 +126,14 @@ class Transformer {
   }
 
   String _assignVariable(String value) {
-    if (_variableMap.containsValue(value)) {
-      return _variableMap.entries
-          .firstWhere((entry) => entry.value == value)
-          .key;
+    final existing = _variableMap.entries.firstWhere((e) => e.value == value,
+        orElse: () => const MapEntry('', ''));
+
+    if (existing.key.isNotEmpty) {
+      return existing.key;
     }
-    final variableName = '[_${_variableMap.length}]';
+
+    final variableName = '[_${_variableMap.length + 1}]';
     _variableMap[variableName] = value;
     return variableName;
   }

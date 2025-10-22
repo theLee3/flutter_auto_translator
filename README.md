@@ -168,7 +168,8 @@ Each API key must be provided in the key file (service name capitalization does 
 ```json
 {
   "google": "CLOUD_TRANSLATE_API_KEY",
-  "deepL": "DEEP_L_API_KEY"
+  "deepL": "DEEP_L_API_KEY",
+  "deepLFree": "DEEP_L_FREE_API_KEY"
 }
 ```
 

@@ -1,3 +1,7 @@
+## 2.4.0 - 2025-10-22 - @rickypid
+
+Added support for DeepL pro.
+
 ## 2.3.5
 
 Improve compatibility with ARB variable names that contain underscores.

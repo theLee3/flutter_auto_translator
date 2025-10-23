@@ -1,3 +1,7 @@
+## 2.3.6
+
+Add verbose flag to output more information during translation, including the ARB entry where an error occurs.
+
 ## 2.3.5
 
 Improve compatibility with ARB variable names that contain underscores.

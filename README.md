@@ -43,7 +43,7 @@ Add `auto_translator` under `dev_dependencies` in `pubspec.yaml`
 
 ```yaml
 dev_dependencies:
-  auto_translator: ^2.3.2
+  auto_translator: ^2.3.6
 ```
 
 ### 3. Setup the config files
@@ -171,6 +171,10 @@ Each API key must be provided in the key file (service name capitalization does 
   "deepL": "DEEP_L_API_KEY"
 }
 ```
+
+### Verbose output
+
+You can enable verbose output with the `--verbose` (`-v`) flag. This is especially helpful in pinpointing the cause of errors.
 
 ### Alternate config file
 

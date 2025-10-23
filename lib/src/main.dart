@@ -276,10 +276,12 @@ Future<void> _translate(Map<String, dynamic> config) async {
         ..removeWhere((key, value) => key.startsWith('@'));
       if (_verboseOutput) {
         for (var entry in prevTranslationMap.entries) {
-          assert(entry.key is String,
-              'Malformed ARB entry: key `${entry.key}` is not a String');
-          assert(entry.value is String,
-              'Malformed ARB entry: value of key `${entry.key}` is not a String');
+          final isKeyString = entry.key is String,
+              isValueString = entry.value is String;
+          if (!isKeyString || !isValueString) {
+            throw InvalidFormatException(entry.key,
+                'Invalid ARB entry: ${isKeyString ? '"${entry.key}"' : entry.key}: ${isValueString ? '"${entry.value}"' : entry.value}');
+          }
         }
       }
       previousTranslations.addAll(prevTranslationMap.cast());

@@ -9,12 +9,12 @@ abstract class CustomException implements Exception {
   final String? _message;
 
   /// Generic help message linking to package usage guide.
-  String get _helpMessage => ' $helpMessage';
+  String get _helpMessage => helpMessage;
 
   @override
   String toString() {
     final errorOutput = _message == null ? '' : '$_message';
-    return '\nERROR: $runtimeType$errorOutput$_helpMessage';
+    return '\nERROR: $runtimeType\n$errorOutput\n$_helpMessage';
   }
 }
 
@@ -41,9 +41,10 @@ class NoTargetsProvidedException extends CustomException {
 /// {@endtemplate}
 class InvalidFormatException extends CustomException {
   /// {@macro NoTargetsProvidedException}
-  const InvalidFormatException([key])
-      : super('Template ARB file is malformed. Missing '
-            'opening or closing curly brace in `$key`.');
+  const InvalidFormatException([key, String? message])
+      : super(message ??
+            'Template ARB file is malformed. Missing '
+                'opening or closing curly brace in `$key`.');
 }
 
 /// {@template MissingTranslatorKeyException}

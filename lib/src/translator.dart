@@ -20,7 +20,6 @@ const _googleSubdomain = 'translation';
 const _googlePath = '/language/translate/v2';
 
 const _deepLApiUrl = 'deepl.com';
-const _deepLSubdomain = 'api-free';
 const _deepLPath = '/v2/translate';
 
 /// {@template translator}
@@ -191,7 +190,8 @@ class Translator {
     required String apiKey,
     bool verbose = false,
   }) async {
-    final url = Uri.https('$_deepLSubdomain.$_deepLApiUrl', _deepLPath);
+    final subdomain = apiKey.endsWith(':fx') ? 'api-free' : 'api';
+    final url = Uri.https('$subdomain.$_deepLApiUrl', _deepLPath);
     final headers = {
       'Authorization': 'DeepL-Auth-Key $apiKey',
       'Content-Type': 'application/json',

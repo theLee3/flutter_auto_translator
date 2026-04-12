@@ -26,16 +26,23 @@ class Transformer {
       : _decodeComplexString(input);
 
   String _decodeSimpleString(String string) {
-    // reverse variable list so locations in string are not affected
-    // during manipulation
-    final variables = _variableExp.allMatches(string).toList().reversed;
-    for (final variable in variables) {
-      final replacement =
-          _variableMap[string.substring(variable.start, variable.end)];
-      if (replacement != null) {
-        string = string.replaceRange(variable.start, variable.end, replacement);
+    // iterate until no more substitutions can be made, to handle nested
+    // variable references introduced by previous substitutions
+    String prev;
+    do {
+      prev = string;
+      // reverse variable list so locations in string are not affected
+      // during manipulation
+      final variables = _variableExp.allMatches(string).toList().reversed;
+      for (final variable in variables) {
+        final replacement =
+            _variableMap[string.substring(variable.start, variable.end)];
+        if (replacement != null) {
+          string =
+              string.replaceRange(variable.start, variable.end, replacement);
+        }
       }
-    }
+    } while (string != prev);
     return string;
   }
 
@@ -64,13 +71,16 @@ class Transformer {
     try {
       final firstMatch = string.substring(
           string.indexOf(_openBracket), string.indexOf(_closeBracket) + 1);
-      if (firstMatch.substring(1).contains(_openBracket)) {
+      if (firstMatch.substring(1).contains(_openBracket) &&
+          firstBraceIndex == 0) {
         return _encodeComplexString(string.substring(1, string.length - 1));
       }
 
       do {
         final start = string.lastIndexOf(_openBracket);
-        final end = string.lastIndexOf(_closeBracket) + 1;
+        final endMatch = _closeBracket.firstMatch(string.substring(start));
+        if (endMatch == null) throw InvalidFormatException();
+        final end = start + endMatch.end;
         final variable = string.substring(start, end);
         final replacement = _assignVariable(variable);
         string = string.replaceAll(variable, replacement);

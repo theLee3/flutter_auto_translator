@@ -23,7 +23,7 @@ abstract class CustomException implements Exception {
 /// {@endtemplate}
 class ConfigNotFoundException extends CustomException {
   /// {@macro ConfigNotFoundException}
-  const ConfigNotFoundException([message]) : super(message);
+  const ConfigNotFoundException([super.message]);
 }
 
 /// {@template NoTargetsProvidedException}
@@ -32,7 +32,7 @@ class ConfigNotFoundException extends CustomException {
 /// {@endtemplate}
 class NoTargetsProvidedException extends CustomException {
   /// {@macro NoTargetsProvidedException}
-  const NoTargetsProvidedException([message]) : super(message);
+  const NoTargetsProvidedException([super.message]);
 }
 
 /// {@template InvalidFormatException}
@@ -41,7 +41,7 @@ class NoTargetsProvidedException extends CustomException {
 /// {@endtemplate}
 class InvalidFormatException extends CustomException {
   /// {@macro NoTargetsProvidedException}
-  const InvalidFormatException([key, String? message])
+  const InvalidFormatException([Object? key, String? message])
       : super(message ??
             'Template ARB file is malformed. Missing '
                 'opening or closing curly brace in `$key`.');
@@ -52,7 +52,7 @@ class InvalidFormatException extends CustomException {
 /// {@endtemplate}
 class MissingTranslatorKeyException extends CustomException {
   /// {@macro MissingTranslatorKeyException}
-  const MissingTranslatorKeyException([message]) : super(message);
+  const MissingTranslatorKeyException([super.message]);
 }
 
 /// {@template MalformedTranslatorKeyFileException}
@@ -76,7 +76,7 @@ class MalformedTranslatorKeyFileException extends CustomException {
 /// {@endtemplate}
 class GoogleTranslateException extends CustomException {
   /// {@macro GoogleTranslateException}
-  const GoogleTranslateException([message]) : super(message);
+  const GoogleTranslateException([super.message]);
 
   @override
   String get _helpMessage => ' See API spec at '
@@ -88,7 +88,7 @@ class GoogleTranslateException extends CustomException {
 /// {@endtemplate}
 class DeepLTranslateException extends CustomException {
   /// {@macro DeepLTranslateException}
-  const DeepLTranslateException([message]) : super(message);
+  const DeepLTranslateException([super.message]);
 
   @override
   String get _helpMessage => ' See API spec at '
@@ -100,7 +100,7 @@ class DeepLTranslateException extends CustomException {
 /// {@endtemplate}
 class UnsupportedTranslatorServiceException extends CustomException {
   /// {@macro UnsupportedTranslatorServiceException}
-  const UnsupportedTranslatorServiceException([message]) : super(message);
+  const UnsupportedTranslatorServiceException([super.message]);
 }
 
 /// Generic help message linking to package usage guide.

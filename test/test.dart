@@ -22,8 +22,9 @@ void main() {
   });
 
   tearDown(() {
-    Directory.current.parent.parent.deleteSync(recursive: true);
+    final dirToDelete = Directory.current.parent.parent;
     Directory.current = currentDirectory;
+    dirToDelete.deleteSync(recursive: true);
   });
   group('config:', () {
     // Test ConfigNotFoundException

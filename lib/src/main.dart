@@ -178,6 +178,11 @@ Future<void> _translate(Map<String, dynamic> config) async {
           throw MissingTranslatorKeyException('No key provided for DeepL.');
         }
         return Translator.deepL(apiKey);
+      case 'deeplfree':
+        if (apiKey == null) {
+          throw MissingTranslatorKeyException('No key provided for DeepL Free.');
+        }
+        return Translator.deepLFree(apiKey);
       default:
         throw UnsupportedTranslatorServiceException(
           '$name is not a valid translator service.',
@@ -199,6 +204,10 @@ Future<void> _translate(Map<String, dynamic> config) async {
   final originalTemplates = <String, Map<String, dynamic>>{};
   final modifiedTemplates = <String, Map<String, dynamic>>{};
   final templateMetadata = <String, Map<String, dynamic>>{};
+
+  // shadow copies for detecting base language changes
+  final shadowDir = '$arbDir/.auto_translator';
+  final changedKeys = <String, Set<String>>{};
 
   // examples to use instead of placeholder variables
   final examples = <String, Map<String, String>>{};
@@ -252,6 +261,28 @@ Future<void> _translate(Map<String, dynamic> config) async {
         arbMetadata: templateMetadata[templatePath]!,
         examples: examples,
       );
+
+      // load shadow copy and detect changed keys in base language
+      final shadowFile = File('$shadowDir/${name}_$source.arb');
+      if (shadowFile.existsSync()) {
+        final shadowTemplate =
+            jsonDecode(shadowFile.readAsStringSync()) as Map<String, dynamic>;
+        final changed = <String>{};
+        for (final entry in origTemplate.entries) {
+          final shadowValue = shadowTemplate[entry.key];
+          if (shadowValue != null && shadowValue != entry.value) {
+            changed.add(entry.key);
+          }
+        }
+        if (changed.isNotEmpty) {
+          changedKeys[templatePath] = changed;
+          stdout.writeln(
+            'Detected ${changed.length} changed '
+            '${changed.length == 1 ? 'key' : 'keys'} in ${name}_$source.arb: '
+            '${changed.join(', ')}',
+          );
+        }
+      }
     }
 
     final currentArbContent = <String, dynamic>{};
@@ -286,12 +317,16 @@ Future<void> _translate(Map<String, dynamic> config) async {
       }
       previousTranslations.addAll(prevTranslationMap.cast());
       // do not translate previously translated phrases unless marked [force]
+      // or the base language value has changed since last run
+      final templateChangedKeys = changedKeys[templatePath] ?? {};
       toTranslate.removeWhere((key, value) {
+        var originalKey = key;
         if (key.startsWith('@')) {
-          key = key.substring(1, key.lastIndexOf(RegExp(r'#.+?#')));
+          originalKey = key.substring(1, key.lastIndexOf(RegExp(r'#.+?#')));
         }
-        return previousTranslations.containsKey(key) &&
-            !(templateMetadata[templatePath]!['@$key']?['translator']
+        if (templateChangedKeys.contains(originalKey)) return false;
+        return previousTranslations.containsKey(originalKey) &&
+            !(templateMetadata[templatePath]!['@$originalKey']?['translator']
                     ?['force'] ??
                 false);
       });
@@ -501,6 +536,17 @@ Future<void> _translate(Map<String, dynamic> config) async {
   } else {
     stdout.writeln(
         'Finished translating to $targetsTranslated language${targetsTranslated > 1 ? 's' : ''}.');
+  }
+
+  // save shadow copies of base language templates for change detection
+  final shadowDirObj = Directory(shadowDir);
+  if (!shadowDirObj.existsSync()) {
+    shadowDirObj.createSync(recursive: true);
+  }
+  for (final entry in originalTemplates.entries) {
+    final templateFileName = entry.key.split('/').last;
+    final shadowFile = File('$shadowDir/$templateFileName');
+    shadowFile.writeAsStringSync(encoder.convert(entry.value));
   }
 }
 

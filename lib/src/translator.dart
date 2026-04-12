@@ -9,7 +9,8 @@ import 'package:http/http.dart' as http show Client;
 
 enum _TranslateBackend {
   google('Google'),
-  deepL('deepL');
+  deepL('deepL'),
+  deepLFree('deepLFree');
 
   const _TranslateBackend(this.name);
   final String name;
@@ -20,7 +21,8 @@ const _googleSubdomain = 'translation';
 const _googlePath = '/language/translate/v2';
 
 const _deepLApiUrl = 'deepl.com';
-const _deepLSubdomain = 'api-free';
+const _deepLSubdomain = 'api';
+const _deepLFreeSubdomain = 'api-free';
 const _deepLPath = '/v2/translate';
 
 /// {@template translator}
@@ -32,10 +34,15 @@ class Translator {
       : _apiKey = apiKey,
         _translateBackend = _TranslateBackend.google;
 
-  /// Translates ARB template file via DeepL Tranlate.
+  /// Translates ARB template file via DeepL Translate (Pro).
   Translator.deepL(String apiKey)
       : _apiKey = apiKey,
         _translateBackend = _TranslateBackend.deepL;
+
+  /// Translates ARB template file via DeepL Free Translate.
+  Translator.deepLFree(String apiKey)
+      : _apiKey = apiKey,
+        _translateBackend = _TranslateBackend.deepLFree;
 
   final String _apiKey;
   final _TranslateBackend _translateBackend;
@@ -89,6 +96,18 @@ class Translator {
             source: source,
             target: target,
             apiKey: _apiKey,
+            subdomain: _deepLSubdomain,
+            verbose: verbose,
+          );
+          break;
+        case _TranslateBackend.deepLFree:
+          result = await _deepLTranslate(
+            client: _client,
+            content: values,
+            source: source,
+            target: target,
+            apiKey: _apiKey,
+            subdomain: _deepLFreeSubdomain,
             verbose: verbose,
           );
           break;
@@ -189,9 +208,10 @@ class Translator {
     required String source,
     required String target,
     required String apiKey,
+    String subdomain = _deepLSubdomain,
     bool verbose = false,
   }) async {
-    final url = Uri.https('$_deepLSubdomain.$_deepLApiUrl', _deepLPath);
+    final url = Uri.https('$subdomain.$_deepLApiUrl', _deepLPath);
     final headers = {
       'Authorization': 'DeepL-Auth-Key $apiKey',
       'Content-Type': 'application/json',
@@ -246,7 +266,7 @@ class Translator {
       return null;
     }
 
-    final json = jsonDecode(response.body);
+    final json = jsonDecode(utf8.decode(response.bodyBytes));
 
     if (verbose) {
       responsePayload['body'] = json;
